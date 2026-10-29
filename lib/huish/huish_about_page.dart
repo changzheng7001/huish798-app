@@ -11,6 +11,9 @@ import '../../widgets/glass_snackbar.dart';
 /// 开源地址（与 GitHub 仓库保持一致）。
 const String _kRepoUrl = 'https://github.com/changzheng7001/huish798-app';
 
+/// 参考项目「掌上华电」的开源地址。
+const String _kRefUrl = 'https://github.com/YechoY/Ncepu-Assistant';
+
 class HuishAboutPage extends StatelessWidget {
   const HuishAboutPage({super.key});
 
@@ -64,8 +67,8 @@ class HuishAboutPage extends StatelessWidget {
                     _sectionTitle('关于本应用'),
                     const SizedBox(height: 10),
                     const _BodyText(
-                      '「喝在西皮」是一款独立开发的校园饮水服务客户端，'
-                      '对接正元智慧（ilife / CLOUDORA）一卡通平台的饮水设备接口。'
+                      '「喝在西皮」是一款以 Vibe Coding（AI 辅助协作编程）方式开发的'
+                      '校园饮水服务客户端，对接正元智慧（ilife / CLOUDORA）一卡通平台的饮水设备接口。'
                       '支持扫码 / 手动添加设备、一键取水、消费记录查看与设备分组管理等能力。'
                       '本项目为开源学习项目，代码可在下方开源地址查看。',
                     ),
@@ -82,61 +85,18 @@ class HuishAboutPage extends StatelessWidget {
                     _sectionTitle('参考与开源'),
                     const SizedBox(height: 10),
                     const _BodyText(
-                      '界面与交互参考自开源项目「掌上华电」'
-                      '（Ncepu-Assistant，github.com/YechoY/Ncepu-Assistant）。',
+                      '界面与交互参考自开源项目「掌上华电」（Ncepu-Assistant），'
+                      '参考地址如下，点击可复制：',
                     ),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: () async {
-                        await Clipboard.setData(
-                          const ClipboardData(text: _kRepoUrl),
-                        );
-                        if (context.mounted) {
-                          showGlassSnackBar(context, '开源地址已复制到剪贴板');
-                        }
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 11,
-                        ),
-                        decoration: BoxDecoration(
-                          color: kPrimary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.link_rounded,
-                              size: 17,
-                              color: kPrimary,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _kRepoUrl.replaceFirst('https://', ''),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: kPrimary,
-                                ),
-                              ),
-                            ),
-                            const Text(
-                              '复制',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: kPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    const SizedBox(height: 6),
+                    _copyBlock(context, '参考项目', _kRefUrl),
+                    const SizedBox(height: 14),
+                    const _BodyText(
+                      '如果你需要定制化版本，可参考本项目的开源源码（下方地址），'
+                      '将需求发给 AI Agent，让它基于本项目为你修改。',
                     ),
+                    const SizedBox(height: 6),
+                    _copyBlock(context, '本项目源码', _kRepoUrl),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -216,6 +176,52 @@ class HuishAboutPage extends StatelessWidget {
       ],
     ),
   );
+
+  /// 可点击复制链接的地址块。
+  Widget _copyBlock(BuildContext context, String label, String url) {
+    return GestureDetector(
+      onTap: () async {
+        await Clipboard.setData(ClipboardData(text: url));
+        if (context.mounted) {
+          showGlassSnackBar(context, '已复制$label地址');
+        }
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: kPrimary.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.link_rounded, size: 17, color: kPrimary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                url.replaceFirst('https://', ''),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: kPrimary,
+                ),
+              ),
+            ),
+            Text(
+              '复制',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: kPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _BodyText extends StatelessWidget {

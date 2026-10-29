@@ -24,7 +24,7 @@ const kHuish = Color(0xFF4A8FF0); // 模块强调：水滴图标/渐变亮端/�
 const kHuishDeep = Color(0xFF2E66C8); // 深水蓝：实底按钮（白字对比约 4.6:1）/渐变深端
 
 // ── 版本号（用于装机后确认是否为最新构建）─────────────────────
-const kHuishVersion = 'v7';
+const kHuishVersion = 'v9';
 
 // ── 中性色 ────────────────────────────────────────────────────
 const kBgTop = Color(0xFFE9F3FF); // 背景渐变上端（水蓝浅色）
