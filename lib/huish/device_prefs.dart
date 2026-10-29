@@ -1,0 +1,297 @@
+// huish/device_prefs.dart —— 饮水设备本地偏好（自定义名 + 分组）。
+//
+// 存在 SharedPreferences，不影响云端数据。结构：
+//   device_custom: { "<deviceId>": { "customName": "...", "groupId": "default" } }
+//   groups: ["default", ...]  // "default" 系统分组，不可删不可重命名
+//   group_order: [...]
+//   custom_names: { "<deviceId>": "..." }  // 设备自定义名快捷查找
+
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
+class DeviceCustomInfo {
+  final String customName;
+  final String groupId;
+  const DeviceCustomInfo({required this.customName, required this.groupId});
+  DeviceCustomInfo.empty() : customName = '', groupId = 'default';
+}
+
+class DevicePrefs {
+  static const _kDeviceCustom = 'huish_device_custom';
+  static const _kGroups = 'huish_groups';
+  static const _kDeviceOrder = 'huish_device_order';
+
+  static Future<Map<String, DeviceCustomInfo>> loadDeviceCustoms() async {
+    final sp = await SharedPreferences.getInstance();
+    final raw = sp.getString(_kDeviceCustom);
+    if (raw == null) return {};
+    try {
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      return json.map((k, v) {
+        final m = v as Map<String, dynamic>;
+        return MapEntry(
+          k,
+          DeviceCustomInfo(
+            customName: m['customName'] as String? ?? '',
+            groupId: m['groupId'] as String? ?? 'default',
+          ),
+        );
+      });
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static Future<void> saveDeviceCustoms(
+    Map<String, DeviceCustomInfo> map,
+  ) async {
+    final sp = await SharedPreferences.getInstance();
+    final json = map.map(
+      (k, v) => MapEntry(k, {'customName': v.customName, 'groupId': v.groupId}),
+    );
+    await sp.setString(_kDeviceCustom, jsonEncode(json));
+  }
+
+  static Future<List<String>> loadGroups() async {
+    final sp = await SharedPreferences.getInstance();
+    final raw = sp.getStringList(_kGroups);
+    if (raw == null || raw.isEmpty) return ['default'];
+    if (!raw.contains('default')) return ['default', ...raw];
+    return raw;
+  }
+
+  static Future<void> saveGroups(List<String> groups) async {
+    await SharedPreferences.getInstance().then((sp) {
+      sp.setStringList(_kGroups, groups);
+    });
+  }
+
+  /// 分组内设备拖拽顺序：`{ "<groupId>": ["deviceId", ...] }`
+  static Future<Map<String, List<String>>> loadDeviceOrder() async {
+    final sp = await SharedPreferences.getInstance();
+    final raw = sp.getString(_kDeviceOrder);
+    if (raw == null) return {};
+    try {
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      return json.map(
+        (k, v) => MapEntry(k, (v as List).map((e) => e.toString()).toList()),
+      );
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static Future<void> saveDeviceOrder(Map<String, List<String>> order) async {
+    final sp = await SharedPreferences.getInstance();
+    await sp.setString(_kDeviceOrder, jsonEncode(order));
+  }
+
+  static Future<void> updateDeviceCustom(
+    String deviceId, {
+    String? customName,
+    String? groupId,
+  }) async {
+    final map = await loadDeviceCustoms();
+    final existing = map[deviceId] ?? DeviceCustomInfo.empty();
+    map[deviceId] = DeviceCustomInfo(
+      customName: customName ?? existing.customName,
+      groupId: groupId ?? existing.groupId,
+    );
+    await saveDeviceCustoms(map);
+  }
+
+  /// 删除设备：清掉自定义信息和排序记录。
+  static Future<void> removeDevice(String deviceId) async {
+    final map = await loadDeviceCustoms();
+    map.remove(deviceId);
+    await saveDeviceCustoms(map);
+    final order = await loadDeviceOrder();
+    final cleaned = order.map(
+      (k, v) => MapEntry(k, v.where((id) => id != deviceId).toList()),
+    );
+    await saveDeviceOrder(cleaned);
+  }
+
+  /// 新建分组（default 保留字、重名/空名拒绝）。
+  static Future<bool> addGroup(String name) async {
+    final n = name.trim();
+    if (n.isEmpty || n == 'default') return false;
+    final groups = await loadGroups();
+    if (groups.contains(n)) return false;
+    await saveGroups([...groups, n]);
+    return true;
+  }
+
+  /// 重命名分组：groups 更新 + 其下设备的 groupId 同步迁移。
+  static Future<void> renameGroup(String oldName, String newName) async {
+    final n = newName.trim();
+    if (oldName == 'default' || n.isEmpty || n == 'default') return;
+    final groups = await loadGroups();
+    if (!groups.contains(oldName) || groups.contains(n)) return;
+    await saveGroups(groups.map((g) => g == oldName ? n : g).toList());
+    final map = await loadDeviceCustoms();
+    final changed = map.map(
+      (k, v) => MapEntry(
+        k,
+        v.groupId == oldName
+            ? DeviceCustomInfo(customName: v.customName, groupId: n)
+            : v,
+      ),
+    );
+    await saveDeviceCustoms(changed);
+  }
+
+  /// 删除分组：其下设备移回 default。
+  static Future<void> deleteGroup(String name) async {
+    if (name == 'default') return;
+    final groups = await loadGroups();
+    if (!groups.contains(name)) return;
+    await saveGroups(groups.where((g) => g != name).toList());
+    final map = await loadDeviceCustoms();
+    final changed = map.map(
+      (k, v) => MapEntry(
+        k,
+        v.groupId == name
+            ? DeviceCustomInfo(customName: v.customName, groupId: 'default')
+            : v,
+      ),
+    );
+    await saveDeviceCustoms(changed);
+  }
+
+  // ── 取水会话持久化 ─────────────────────────────────────────
+
+  static const _kActiveSession = 'huish_active_session';
+  static const _sessionTimeoutMinutes = 30;
+
+  /// 保存当前活跃的取水会话（App 被杀后 Resume 用）。
+  static Future<void> saveActiveSession({
+    required String deviceId,
+    required double startOut,
+    required int startTs,
+  }) async {
+    final sp = await SharedPreferences.getInstance();
+    await sp.setString(
+      _kActiveSession,
+      jsonEncode({
+        'deviceId': deviceId,
+        'startOut': startOut,
+        'startTs': startTs,
+      }),
+    );
+  }
+
+  /// 清除活跃会话（停止取水或超时清理）。
+  static Future<void> clearActiveSession() async {
+    final sp = await SharedPreferences.getInstance();
+    await sp.remove(_kActiveSession);
+  }
+
+  /// 读取活跃会话，超时（>30 分钟）自动清掉并返回 null。
+  static Future<HuishActiveSession?> loadActiveSession() async {
+    final sp = await SharedPreferences.getInstance();
+    final raw = sp.getString(_kActiveSession);
+    if (raw == null) return null;
+    try {
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      final startTs = json['startTs'] as int? ?? 0;
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      if (now - startTs > _sessionTimeoutMinutes * 60) {
+        await sp.remove(_kActiveSession);
+        return null;
+      }
+      return HuishActiveSession(
+        deviceId: json['deviceId'] as String? ?? '',
+        startOut: (json['startOut'] as num?)?.toDouble() ?? 0,
+        startTs: startTs,
+      );
+    } catch (_) {
+      await sp.remove(_kActiveSession);
+      return null;
+    }
+  }
+
+  // ── 本机停水记录（服务端 gene.status 滞后期间的乐观覆盖）──────────
+
+  static const _kStoppedPrefix = 'huish_stopped_';
+  static const _stoppedWindow = Duration(seconds: 120);
+
+  /// 记录本机刚刚成功停止该设备的时间戳。
+  static Future<void> markStoppedByMe(String deviceId) async {
+    final sp = await SharedPreferences.getInstance();
+    await sp.setInt(
+      '$_kStoppedPrefix$deviceId',
+      DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
+  /// 清除本机停水记录（重新启动取水时调用）。
+  static Future<void> clearStoppedByMe(String deviceId) async {
+    final sp = await SharedPreferences.getInstance();
+    await sp.remove('$_kStoppedPrefix$deviceId');
+  }
+
+  /// 本机是否在窗口期内停止过该设备——服务端 gene.status 可能仍为 1（滞后）。
+  static Future<bool> wasRecentlyStopped(String deviceId) async {
+    final sp = await SharedPreferences.getInstance();
+    final ts = sp.getInt('$_kStoppedPrefix$deviceId');
+    if (ts == null) return false;
+    return DateTime.now().millisecondsSinceEpoch - ts <
+        _stoppedWindow.inMilliseconds;
+  }
+
+  // ── 一键取水：绑定的快捷设备 ──────────────────────────────
+  static const _kQuickDevice = 'huish_quick_device'; // deviceId
+  static const _kQuickDeviceName = 'huish_quick_device_name';
+
+  static Future<String?> getQuickDeviceId() async {
+    final sp = await SharedPreferences.getInstance();
+    return sp.getString(_kQuickDevice);
+  }
+
+  static Future<String?> getQuickDeviceName() async {
+    final sp = await SharedPreferences.getInstance();
+    return sp.getString(_kQuickDeviceName);
+  }
+
+  static Future<void> setQuickDevice(String deviceId, String name) async {
+    final sp = await SharedPreferences.getInstance();
+    await sp.setString(_kQuickDevice, deviceId);
+    await sp.setString(_kQuickDeviceName, name);
+  }
+
+  static Future<void> clearQuickDevice() async {
+    final sp = await SharedPreferences.getInstance();
+    await sp.remove(_kQuickDevice);
+    await sp.remove(_kQuickDeviceName);
+  }
+
+  // 一键取水：授权开关状态（远程启动只是授权，服务端 status 在实体键按下前仍为空闲）
+  static const _kQuickOn = 'huish_quick_on';
+
+  static Future<void> setQuickOn(bool on) async {
+    final sp = await SharedPreferences.getInstance();
+    if (on) {
+      await sp.setBool(_kQuickOn, true);
+    } else {
+      await sp.remove(_kQuickOn);
+    }
+  }
+
+  static Future<bool> isQuickOn() async {
+    final sp = await SharedPreferences.getInstance();
+    return sp.getBool(_kQuickOn) ?? false;
+  }
+}
+
+class HuishActiveSession {
+  final String deviceId;
+  final double startOut;
+  final int startTs;
+  const HuishActiveSession({
+    required this.deviceId,
+    required this.startOut,
+    required this.startTs,
+  });
+}
