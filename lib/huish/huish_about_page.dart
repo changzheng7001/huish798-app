@@ -92,8 +92,8 @@ class HuishAboutPage extends StatelessWidget {
                     _copyBlock(context, '参考项目', _kRefUrl),
                     const SizedBox(height: 14),
                     const _BodyText(
-                      '如果你需要定制化版本，可参考本项目的开源源码（下方地址），'
-                      '将需求发给 AI Agent，让它基于本项目为你修改。',
+                      '本项目源码已开源，仅供学习交流。如果你也想打造类似的饮水服务'
+                      '客户端，可以参考这份源码，并结合 AI 辅助编程工具，按自己的需求进行调整。',
                     ),
                     const SizedBox(height: 6),
                     _copyBlock(context, '本项目源码', _kRepoUrl),
