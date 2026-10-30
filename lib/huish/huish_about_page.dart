@@ -2,17 +2,20 @@
 // 参考原掌上华电的"关于"结构：版本信息 + 功能说明 + 免责声明。
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../theme.dart';
 import '../../widgets/glass_background.dart';
 import '../../widgets/glass_snackbar.dart';
 
-/// 开源地址（与 GitHub 仓库保持一致）。
+/// 本项目开源地址（与 GitHub 仓库保持一致）。
 const String _kRepoUrl = 'https://github.com/changzheng7001/huish798-app';
 
 /// 参考项目「掌上华电」的开源地址。
 const String _kRefUrl = 'https://github.com/YechoY/Ncepu-Assistant';
+
+/// 源头项目「huish」的开源地址（存在版本号 bug，无法直接使用）。
+const String _kHuishUrl = 'https://github.com/KazemiyaMione/huish';
 
 class HuishAboutPage extends StatelessWidget {
   const HuishAboutPage({super.key});
@@ -67,15 +70,17 @@ class HuishAboutPage extends StatelessWidget {
                     _sectionTitle('关于本应用'),
                     const SizedBox(height: 10),
                     const _BodyText(
-                      '「喝在西皮」是一款以 Vibe Coding（AI 辅助协作编程）方式开发的'
-                      '校园饮水服务客户端，对接正元智慧（ilife / CLOUDORA）一卡通平台的饮水设备接口。'
-                      '支持扫码 / 手动添加设备、一键取水、消费记录查看与设备分组管理等能力。'
-                      '本项目为开源学习项目，代码可在下方开源地址查看。',
+                      '「喝在西皮」是一款以豆包（Doubao）AI（Vibe Coding，AI 辅助协作编程）'
+                      '方式开发的校园饮水服务客户端。它将开源项目「掌上华电」的取水部分'
+                      '独立出来，重新设计了应用图标与色调，并尝试进一步液态玻璃化'
+                      '（效果一般，未完全成功）；同时在消费记录中加入了跳转至相应设备的功能。'
+                      '应用对接云哆啦科技有限公司的 ilife / CLOUDORA 饮水设备接口。',
                     ),
                     const SizedBox(height: 12),
                     _kv('版本', kHuishVersion),
                     _kv('包名', 'com.huish798.app'),
                     _kv('开发者', 'changzheng7001'),
+                    _kv('服务提供方', '云哆啦科技'),
                     _kv('数据接口', 'i.ilife798.com'),
                   ],
                 ),
@@ -85,18 +90,37 @@ class HuishAboutPage extends StatelessWidget {
                     _sectionTitle('参考与开源'),
                     const SizedBox(height: 10),
                     const _BodyText(
-                      '界面与交互参考自开源项目「掌上华电」（Ncepu-Assistant），'
-                      '参考地址如下，点击可复制：',
+                      '界面与交互参考自开源项目「掌上华电」（Ncepu-Assistant）：',
                     ),
                     const SizedBox(height: 6),
-                    _copyBlock(context, '参考项目', _kRefUrl),
-                    const SizedBox(height: 14),
+                    _openLink(context, '掌上华电', _kRefUrl),
+                    const SizedBox(height: 10),
                     const _BodyText(
-                      '本项目源码已开源，仅供学习交流。如果你也想打造类似的饮水服务'
-                      '客户端，可以参考这份源码，并结合 AI 辅助编程工具，按自己的需求进行调整。',
+                      '本项目亦参考了源头项目「huish」（因版本号 bug 无法直接使用）：',
                     ),
                     const SizedBox(height: 6),
-                    _copyBlock(context, '本项目源码', _kRepoUrl),
+                    _openLink(context, '源头项目', _kHuishUrl),
+                    const SizedBox(height: 12),
+                    const _BodyText(
+                      '本项目源码已开源，仅供学习交流。如果你也想打造类似的饮水服务客户端，'
+                      '可以参考这份源码，并结合 AI 辅助编程工具，按自己的需求进行调整：',
+                    ),
+                    const SizedBox(height: 6),
+                    _openLink(context, '本项目源码', _kRepoUrl),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _sectionCard(
+                  children: [
+                    _sectionTitle('待完善功能'),
+                    const SizedBox(height: 10),
+                    const _BodyText(
+                      '1. 反复点击取水后，部分设备会提示「当前设备正在使用」而无法启动'
+                      '（客户端与服务端状态判定脱节，已定位、暂未修复）。',
+                    ),
+                    const _BodyText(
+                      '2. 通过手机 NFC 一键启动对应饮水设备（已预留通道，暂未接入）。',
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -106,7 +130,7 @@ class HuishAboutPage extends StatelessWidget {
                     const SizedBox(height: 10),
                     const _BodyText(
                       '1. 本应用为个人 / 学习用途的第三方客户端，非官方产品，与'
-                      '正元智慧及其下属公司、学校无任何关联，不代表官方立场。',
+                      '云哆啦科技有限公司及其关联方、学校无任何关联，不代表官方立场。',
                     ),
                     const _BodyText(
                       '2. 应用通过公开接口协议与饮水服务交互，官方升级协议可能导致'
@@ -164,7 +188,7 @@ class HuishAboutPage extends StatelessWidget {
     child: Row(
       children: [
         SizedBox(
-          width: 64,
+          width: 68,
           child: Text(k, style: const TextStyle(fontSize: 13, color: kTextMuted)),
         ),
         Expanded(
@@ -177,15 +201,10 @@ class HuishAboutPage extends StatelessWidget {
     ),
   );
 
-  /// 可点击复制链接的地址块。
-  Widget _copyBlock(BuildContext context, String label, String url) {
+  /// 点击直接跳转到对应页面的地址块。
+  Widget _openLink(BuildContext context, String label, String url) {
     return GestureDetector(
-      onTap: () async {
-        await Clipboard.setData(ClipboardData(text: url));
-        if (context.mounted) {
-          showGlassSnackBar(context, '已复制$label地址');
-        }
-      },
+      onTap: () => _launch(context, url),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
@@ -210,7 +229,7 @@ class HuishAboutPage extends StatelessWidget {
               ),
             ),
             Text(
-              '复制',
+              label,
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -221,6 +240,14 @@ class HuishAboutPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _launch(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      showGlassSnackBar(context, '无法打开链接，请检查网络');
+    }
   }
 }
 
