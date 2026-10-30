@@ -17,6 +17,9 @@ const String _kRefUrl = 'https://github.com/YechoY/Ncepu-Assistant';
 /// 源头项目「huish」的开源地址（存在版本号 bug，无法直接使用）。
 const String _kHuishUrl = 'https://github.com/KazemiyaMione/huish';
 
+/// 源头项目的社区修复版「798v6.0.0」。
+const String _kFixUrl = 'https://github.com/QYNU11/798v6.0.0';
+
 class HuishAboutPage extends StatelessWidget {
   const HuishAboutPage({super.key});
 
@@ -109,6 +112,17 @@ class HuishAboutPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     _openLink(context, '本项目源码', _kRepoUrl),
+                    const SizedBox(height: 12),
+                    const _BodyText(
+                      '当然了，由于本项目完全是豆包生成的，再加上作者几乎没有编程基础'
+                      '与相关知识，如果你不信任豆包生成的代码，大可以绕过这个'
+                      '「屎山代码」，直接从上层开源方案入手修改——差别应该不会太大。'
+                      '去尝试 Vibe Coding，去定制属于自己的功能吧！😄',
+                    ),
+                    const SizedBox(height: 10),
+                    const _BodyText('也可以直接参考这些开源方案：'),
+                    const SizedBox(height: 6),
+                    _openLink(context, '修复版 798v6.0.0', _kFixUrl),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -122,6 +136,41 @@ class HuishAboutPage extends StatelessWidget {
                     ),
                     const _BodyText(
                       '2. 通过手机 NFC 一键启动对应饮水设备（已预留通道，暂未接入）。',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _sectionCard(
+                  children: [
+                    _sectionTitle('致谢'),
+                    const SizedBox(height: 10),
+                    const _BodyText(
+                      '特别感谢「掌上华电」（Ncepu-Assistant）项目：界面清爽、操作逻辑'
+                      '方便，解决了作者一直想解决的问题，本应用界面与交互以其为参考。',
+                    ),
+                    const _BodyText(
+                      '同时感谢源头项目「huish798」（取水逻辑参考）及其社区修复版'
+                      '「798v6.0.0」。',
+                    ),
+                    const _BodyText(
+                      '应用名称「喝在西皮」由室长 Tianze 提供，应用图标由 ChatGPT 生成，'
+                      '特此致谢。',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _sectionCard(
+                  children: [
+                    _sectionTitle('关于刷积分'),
+                    const SizedBox(height: 10),
+                    const _BodyText(
+                      '本应用不会加入刷积分相关功能：能够去除广告、便捷取水，已经足够；'
+                      '刷积分会加大对官方利益的侵害，故不内置。',
+                    ),
+                    const _BodyText(
+                      '不过作为 Vibe Coding 学习项目，这也是一个可探索的方向——如果你'
+                      '感兴趣，可自行尝试实现（参考 huish798 等项目），请在合法合规的'
+                      '前提下探索。',
                     ),
                   ],
                 ),
