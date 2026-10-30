@@ -74,7 +74,9 @@ class HuishAboutPage extends StatelessWidget {
                       '方式开发的校园饮水服务客户端。它将开源项目「掌上华电」的取水部分'
                       '独立出来，重新设计了应用图标与色调，并尝试进一步液态玻璃化'
                       '（效果一般，未完全成功）；同时在消费记录中加入了跳转至相应设备的功能。'
-                      '应用对接云哆啦科技有限公司的 ilife / CLOUDORA 饮水设备接口。',
+                      '应用对接云哆啦科技有限公司的 ilife / CLOUDORA 饮水设备接口。'
+                      '这也是作者第一次以 Vibe Coding 方式开发 Flutter 项目（此前仅用'
+                      '豆包做过网页套壳的教务查询 App），整体更偏学习与尝试性质。',
                     ),
                     const SizedBox(height: 12),
                     _kv('版本', kHuishVersion),
