@@ -73,8 +73,8 @@ class HuishAboutPage extends StatelessWidget {
                     _sectionTitle('关于本应用'),
                     const SizedBox(height: 10),
                     const _BodyText(
-                      '「喝在西皮」是一款以豆包（Doubao）AI（Vibe Coding，AI 辅助协作编程）'
-                      '方式开发的校园饮水服务客户端。它将开源项目「掌上华电」的取水部分'
+                      '「喝在西皮」是一款通过豆包任务（Vibe Coding，AI 协作式开发）'
+                      '开发的校园饮水服务客户端。它将开源项目「掌上华电」的取水部分'
                       '独立出来，重新设计了应用图标与色调，并尝试进一步液态玻璃化'
                       '（效果一般，未完全成功）；同时在消费记录中加入了跳转至相应设备的功能。'
                       '应用对接云哆啦科技有限公司的 ilife / CLOUDORA 饮水设备接口。'
@@ -145,16 +145,17 @@ class HuishAboutPage extends StatelessWidget {
                     _sectionTitle('致谢'),
                     const SizedBox(height: 10),
                     const _BodyText(
-                      '特别感谢「掌上华电」（Ncepu-Assistant）项目：界面清爽、操作逻辑'
-                      '方便，解决了作者一直想解决的问题，本应用界面与交互以其为参考。',
+                      '本项目几乎就是照搬「掌上华电」（Ncepu-Assistant）：将其中取水部分'
+                      '直接独立出来，再做了一些细微修改。其界面清爽、操作逻辑方便，'
+                      '解决了作者一直想解决的问题，特此致敬。',
                     ),
                     const _BodyText(
                       '同时感谢源头项目「huish798」（取水逻辑参考）及其社区修复版'
                       '「798v6.0.0」。',
                     ),
                     const _BodyText(
-                      '应用名称「喝在西皮」由室长 Tianze 提供，应用图标由 ChatGPT 生成，'
-                      '特此致谢。',
+                      '应用名称「喝在西皮」由室长 Tianze 提供，应用图标也由室长 Tianze'
+                      '通过 ChatGPT 生成，特此致谢。',
                     ),
                   ],
                 ),
