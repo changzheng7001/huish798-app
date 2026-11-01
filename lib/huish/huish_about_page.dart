@@ -43,6 +43,8 @@ class HuishAboutPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final disclaimer = ref.watch(disclaimerStateProvider);
+    final disAgreed = disclaimer != DisclaimerState.agreed;
     return Scaffold(
       body: Stack(
         children: [
@@ -247,14 +249,29 @@ class HuishAboutPage extends ConsumerWidget {
                       '5. 如涉及相关权利问题，请通过开源仓库 Issues 反馈，我们会配合处理。',
                     ),
                     const SizedBox(height: 8),
-                    // 同意/不同意是逻辑上的：此处为单一"我已阅读并同意"确认入口，
-                    // 点击即同意（清除任何不同意记录，应用恢复可用）。
+                    // 同意/不同意是逻辑上的切换：点击同一入口在「同意 ↔ 不同意」间切换。
+                    // 不同意时应用将不可用（不退出 App），再次点击即可恢复同意。
                     GestureDetector(
                       onTap: () {
-                        DisclaimerStore.agree();
-                        ref.read(disclaimerStateProvider.notifier).state =
-                            DisclaimerState.agreed;
-                        showGlassSnackBar(context, '已同意免责声明，应用可正常使用');
+                        if (disAgreed) {
+                          DisclaimerStore.agree();
+                          ref
+                              .read(disclaimerStateProvider.notifier)
+                              .state = DisclaimerState.agreed;
+                          showGlassSnackBar(
+                            context,
+                            '已同意免责声明，应用可正常使用',
+                          );
+                        } else {
+                          DisclaimerStore.disagree();
+                          ref
+                              .read(disclaimerStateProvider.notifier)
+                              .state = DisclaimerState.disagreed;
+                          showGlassSnackBar(
+                            context,
+                            '已切换为不同意，应用将不可用（不退出）',
+                          );
+                        }
                       },
                       child: Container(
                         width: double.infinity,
@@ -263,30 +280,50 @@ class HuishAboutPage extends ConsumerWidget {
                           vertical: 11,
                         ),
                         decoration: BoxDecoration(
-                          color: kPrimary.withValues(alpha: 0.10),
+                          color: disAgreed
+                              ? const Color(0xFFB85450).withValues(alpha: 0.08)
+                              : kPrimary.withValues(alpha: 0.10),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
                           children: [
-                            const Icon(
-                              Icons.check_circle,
+                            Icon(
+                              disAgreed
+                                  ? Icons.radio_button_unchecked
+                                  : Icons.check_circle,
                               size: 16,
-                              color: kPrimary,
+                              color: disAgreed
+                                  ? const Color(0xFFB85450)
+                                  : kPrimary,
                             ),
                             const SizedBox(width: 6),
-                            const Expanded(
+                            Expanded(
                               child: Text(
-                                '我已阅读并同意上述免责声明',
+                                disAgreed
+                                    ? '当前未同意 · 点击同意上述免责声明'
+                                    : '我已阅读并同意上述免责声明',
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
-                                  color: kInk,
+                                  color: disAgreed
+                                      ? const Color(0xFFB85450)
+                                      : kInk,
                                 ),
                               ),
+                            ),
+                            const Icon(
+                              Icons.sync_rounded,
+                              size: 14,
+                              color: kTextMuted,
                             ),
                           ],
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      '点击上方区域可在「同意 / 不同意」间切换；不同意时应用将不可用（不退出 App），再次点击即可恢复。',
+                      style: TextStyle(fontSize: 11, color: kTextMuted),
                     ),
                   ],
                 ),

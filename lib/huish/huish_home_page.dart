@@ -1403,10 +1403,11 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
                 ),
               ),
               const Spacer(),
-              const Text(
-                '长按拖动排序',
-                style: TextStyle(fontSize: 11, color: kTextMuted),
-              ),
+              if (!isLand)
+                const Text(
+                  '长按拖动排序',
+                  style: TextStyle(fontSize: 11, color: kTextMuted),
+                ),
               const SizedBox(width: 10),
               GestureDetector(
                 onTap: _manageGroups,
@@ -1502,27 +1503,22 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
                   ),
                 ),
                 if (!collapsed) ...[
-                  ReorderableListView(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: EdgeInsets.zero,
-                    buildDefaultDragHandles: true,
-                    proxyDecorator: (child, index, animation) =>
-                        ScaleTransition(
-                          scale: Tween<double>(
-                            begin: 1,
-                            end: 1.04,
-                          ).animate(animation),
-                          child: child,
-                        ),
-                    onReorderItem: (oldIndex, newIndex) =>
-                        _reorderDevices(gid, list, oldIndex, newIndex),
-                    children: [
-                      for (final d in list)
-                        Padding(
-                          key: ValueKey(_deviceId(d)),
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _DeviceCard(
+                  if (isLand)
+                    // 横屏：设备卡片两列网格，充分利用横向空间
+                    GridView(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: EdgeInsets.zero,
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 560,
+                        mainAxisExtent: 86,
+                        crossAxisSpacing: 10,
+                        mainAxisSpacing: 8,
+                      ),
+                      children: [
+                        for (final d in list)
+                          _DeviceCard(
                             customName: _deviceName(d),
                             status:
                                 _statuses[_deviceId(d)] ??
@@ -1530,9 +1526,40 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
                             onTap: () => _tapDevice(d),
                             onEdit: () => _showDeviceActions(d),
                           ),
-                        ),
-                    ],
-                  ),
+                      ],
+                    )
+                  else
+                    ReorderableListView(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: EdgeInsets.zero,
+                      buildDefaultDragHandles: true,
+                      proxyDecorator: (child, index, animation) =>
+                          ScaleTransition(
+                            scale: Tween<double>(
+                              begin: 1,
+                              end: 1.04,
+                            ).animate(animation),
+                            child: child,
+                          ),
+                      onReorderItem: (oldIndex, newIndex) =>
+                          _reorderDevices(gid, list, oldIndex, newIndex),
+                      children: [
+                        for (final d in list)
+                          Padding(
+                            key: ValueKey(_deviceId(d)),
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: _DeviceCard(
+                              customName: _deviceName(d),
+                              status:
+                                  _statuses[_deviceId(d)] ??
+                                  DeviceRuntimeStatus.unknown,
+                              onTap: () => _tapDevice(d),
+                              onEdit: () => _showDeviceActions(d),
+                            ),
+                          ),
+                      ],
+                    ),
                   const SizedBox(height: 6),
                 ],
               ],
