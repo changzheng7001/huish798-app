@@ -954,6 +954,7 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
     // MediaQuery.removePadding 让背景铺满整屏（一定透到状态栏与底部 home indicator），
     // 内容用真实系统 inset（viewPadding）手动留白，避免被顶到状态栏下。
     final vp = MediaQuery.viewPaddingOf(context);
+    final isLand = MediaQuery.orientationOf(context) == Orientation.landscape;
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: MediaQuery.removePadding(
@@ -982,11 +983,16 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
                 ],
               ),
             ),
-            // 底部一键取水（液态玻璃胶囊，沉底到 home indicator 上方）
+            // 一键取水：竖屏沉底（玻璃胶囊），横屏右侧悬浮（不占整行）
             if (!_loading && _error == null)
               Align(
-                alignment: Alignment.bottomCenter,
-                child: _buildQuickButton(context, bottomInset: vp.bottom),
+                alignment: isLand
+                    ? Alignment.centerRight
+                    : Alignment.bottomCenter,
+                child: _buildQuickButton(
+                  context,
+                  bottomInset: isLand ? 0 : vp.bottom,
+                ),
               ),
           ],
         ),
@@ -1147,10 +1153,13 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
 
     // 沉底：预留底部安全区（home indicator）高度
     final bottomPad = bottomInset + 12;
+    final isLand = MediaQuery.orientationOf(context) == Orientation.landscape;
 
     return Container(
-      width: double.infinity,
-      margin: EdgeInsets.fromLTRB(20, 4, 20, bottomPad),
+      width: isLand ? 200 : double.infinity,
+      margin: isLand
+          ? const EdgeInsets.only(right: 12, bottom: 12)
+          : EdgeInsets.fromLTRB(20, 4, 20, bottomPad),
       child: GestureDetector(
         onTap: _quickBusy ? null : _quickToggle,
         onLongPress: _pickQuickDevice,
@@ -1286,13 +1295,17 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
   }
 
   Widget _buildContent() {
+    final isLand = MediaQuery.orientationOf(context) == Orientation.landscape;
     final grouped = _groupDevices();
     final groupNames = grouped.keys.toList();
     return RefreshIndicator(
       color: kPrimary,
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 130), // 底部预留一键取水浮钮空间
+        // 竖屏底部预留取水浮钮空间；横屏右侧预留（按钮右侧悬浮）
+        padding: isLand
+            ? const EdgeInsets.fromLTRB(20, 4, 150, 24)
+            : const EdgeInsets.fromLTRB(20, 4, 20, 130),
         children: [
           // 添加设备大按钮
           GestureDetector(

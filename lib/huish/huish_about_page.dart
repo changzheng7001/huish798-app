@@ -22,6 +22,22 @@ const String _kHuishUrl = 'https://github.com/KazemiyaMione/huish';
 /// 源头项目的社区修复版「798v6.0.0」。
 const String _kFixUrl = 'https://github.com/QYNU11/798v6.0.0';
 
+// 生态相关项目（与 GitHub README「参考项目」保持一致）。
+/// 饮水 + 积分任务客户端（WaterWidget），维护中。
+const String _kLifeUrl = 'https://github.com/nocookies111/life-798';
+/// 独立重制客户端，适配最新版，较活跃。
+const String _kSmartUrl = 'https://github.com/wu-shanglin/Smartlife798';
+/// 客户端（已停更）。
+const String _kIlifeUrl = 'https://github.com/ilife798/ilife798';
+/// 客户端（已停更）。
+const String _kNotunUrl = 'https://github.com/NotUNperson/ilife798';
+/// 积分获取工具（已停更）。
+const String _kScoreUrl = 'https://github.com/ISUNCY/ilife798_score_get';
+/// 客户端（已停更）。
+const String _kSsbbUrl = 'https://github.com/ssssbbbbg/ilife798';
+/// 饭卡 / 一卡通查询（2022 停更）。
+const String _kZjhUrl = 'https://github.com/egdw/ZJHZCC_QUERY_MEAL_CARD';
+
 class HuishAboutPage extends ConsumerWidget {
   const HuishAboutPage({super.key});
 
@@ -34,9 +50,17 @@ class HuishAboutPage extends ConsumerWidget {
             child: GlassBackground(child: const SizedBox.shrink()),
           ),
           SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-              children: [
+            child: OrientationBuilder(
+              builder: (context, orientation) {
+                final isLand = orientation == Orientation.landscape;
+                final list = ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    isLand ? 40 : 20,
+                    12,
+                    isLand ? 40 : 20,
+                    32,
+                  ),
+                  children: [
                 Row(
                   children: [
                     GestureDetector(
@@ -129,6 +153,22 @@ class HuishAboutPage extends ConsumerWidget {
                     const _BodyText('也可以直接参考这些开源方案：'),
                     const SizedBox(height: 6),
                     _openLink(context, '修复版 798v6.0.0', _kFixUrl),
+                    const SizedBox(height: 8),
+                    const _BodyText('更多生态项目（与 GitHub README 保持一致）：'),
+                    const SizedBox(height: 6),
+                    _openLink(context, '饮水+积分任务客户端', _kLifeUrl),
+                    const SizedBox(height: 8),
+                    _openLink(context, '独立重制客户端', _kSmartUrl),
+                    const SizedBox(height: 8),
+                    _openLink(context, '客户端（已停更）', _kIlifeUrl),
+                    const SizedBox(height: 8),
+                    _openLink(context, '客户端（已停更）', _kNotunUrl),
+                    const SizedBox(height: 8),
+                    _openLink(context, '积分获取工具（已停更）', _kScoreUrl),
+                    const SizedBox(height: 8),
+                    _openLink(context, '客户端（已停更）', _kSsbbUrl),
+                    const SizedBox(height: 8),
+                    _openLink(context, '饭卡查询（2022 停更）', _kZjhUrl),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -207,111 +247,62 @@ class HuishAboutPage extends ConsumerWidget {
                       '5. 如涉及相关权利问题，请通过开源仓库 Issues 反馈，我们会配合处理。',
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.check_circle,
-                          size: 16,
-                          color: kPrimary,
+                    // 同意/不同意是逻辑上的：此处为单一"我已阅读并同意"确认入口，
+                    // 点击即同意（清除任何不同意记录，应用恢复可用）。
+                    GestureDetector(
+                      onTap: () {
+                        DisclaimerStore.agree();
+                        ref.read(disclaimerStateProvider.notifier).state =
+                            DisclaimerState.agreed;
+                        showGlassSnackBar(context, '已同意免责声明，应用可正常使用');
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 11,
                         ),
-                        const SizedBox(width: 6),
-                        const Expanded(
-                          child: Text(
-                            '我已阅读并同意上述免责声明',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: kInk,
+                        decoration: BoxDecoration(
+                          color: kPrimary.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.check_circle,
+                              size: 16,
+                              color: kPrimary,
                             ),
-                          ),
+                            const SizedBox(width: 6),
+                            const Expanded(
+                              child: Text(
+                                '我已阅读并同意上述免责声明',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: kInk,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    const _BodyText(
-                      '请做出选择：同意并继续使用；或不同意（应用将不可用，'
-                      '但不会退出 App，可随时返回本页重新同意）。',
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _disclaimerButton(
-                            context,
-                            ref,
-                            label: '同意并继续使用',
-                            agreed: true,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _disclaimerButton(
-                            context,
-                            ref,
-                            label: '不同意（应用不可用）',
-                            agreed: false,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
               ],
+                );
+                if (!isLand) return list;
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 760),
+                    child: list,
+                  ),
+                );
+              },
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  // 免责声明选择按钮：同意 → 应用可用；不同意 → 应用不可用（不退出）。
-  Widget _disclaimerButton(
-    BuildContext context,
-    WidgetRef ref, {
-    required String label,
-    required bool agreed,
-  }) {
-    return GestureDetector(
-      onTap: () async {
-        if (agreed) {
-          await DisclaimerStore.agree();
-          ref.read(disclaimerStateProvider.notifier).state =
-              DisclaimerState.agreed;
-          if (context.mounted) {
-            showGlassSnackBar(context, '已同意免责声明，应用可正常使用');
-          }
-        } else {
-          await DisclaimerStore.disagree();
-          ref.read(disclaimerStateProvider.notifier).state =
-              DisclaimerState.disagreed;
-          if (context.mounted) {
-            showGlassSnackBar(context, '已记录为不同意，应用将不可用（不退出）');
-          }
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: agreed
-              ? kPrimary
-              : const Color(0xFFB85450).withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: agreed
-                ? kPrimary
-                : const Color(0xFFB85450).withValues(alpha: 0.4),
-          ),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            color: agreed ? Colors.white : const Color(0xFFB85450),
-          ),
-        ),
       ),
     );
   }

@@ -488,256 +488,313 @@ class _HuishDevicePageState extends ConsumerState<HuishDevicePage> {
   }
 
   Widget _buildContent() {
+    final isLand = MediaQuery.orientationOf(context) == Orientation.landscape;
     final bottomPad = MediaQuery.paddingOf(context).bottom + 16;
+
+    if (isLand) {
+      // 横屏：左栏（返回栏 + 接水量卡片），右栏（操作按钮竖排）
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 12),
+                  Expanded(child: Center(child: _buildWaterCard())),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              flex: 2,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildStartButton(),
+                  const SizedBox(height: 12),
+                  _buildFavButton(),
+                  const SizedBox(height: 10),
+                  _buildNfcButton(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 竖屏：返回栏 + 接水量卡片（撑满）+ 操作按钮（沉底）
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 12, 20, bottomPad),
       child: Column(
         children: [
-          Row(
-            children: [
-              GestureDetector(
-                onTap: _exit,
-                child: Container(
-                  width: 38,
-                  height: 38,
-                  alignment: Alignment.center,
+          _buildHeader(),
+          const SizedBox(height: 12),
+          Expanded(child: Center(child: _buildWaterCard())),
+          _buildStartButton(),
+          const SizedBox(height: 12),
+          _buildFavButton(),
+          const SizedBox(height: 10),
+          _buildNfcButton(),
+        ],
+      ),
+    );
+  }
+
+  // 返回栏
+  Widget _buildHeader() {
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: _exit,
+          child: Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 18,
+              color: kPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            _apiName.isNotEmpty
+                ? _apiName
+                : (widget.deviceName.isNotEmpty
+                      ? widget.deviceName
+                      : '饮水设备'),
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: kInk,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 接水量大卡片：状态 + 本次接水量 + 统计信息
+  Widget _buildWaterCard() {
+    return GlassCard(
+      radius: 24,
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: Icon(
+              _running ? Icons.water_drop : Icons.water_drop_outlined,
+              key: ValueKey(_running),
+              size: 56,
+              color: _deviceStatus == DeviceRuntimeStatus.offline
+                  ? const Color(0xFFB0B5C2)
+                  : (_running ? kHuish : kTextMuted),
+            ),
+          ),
+          const SizedBox(height: 6),
+          // 状态徽章
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 5,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.8),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 18,
-                    color: kPrimary,
+                    color: _deviceStatus.dotColor,
+                    shape: BoxShape.circle,
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  _apiName.isNotEmpty
-                      ? _apiName
-                      : (widget.deviceName.isNotEmpty
-                            ? widget.deviceName
-                            : '饮水设备'),
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    color: kInk,
+                const SizedBox(width: 5),
+                Text(
+                  _deviceStatus == DeviceRuntimeStatus.unknown
+                      ? '加载中…'
+                      : _deviceStatus.label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _deviceStatus.dotColor,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // 接水量大卡片：占据返回栏与底部按钮之间的剩余空间，垂直居中
-          Expanded(
-            child: Center(
-              child: GlassCard(
-                radius: 24,
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      child: Icon(
-                        _running ? Icons.water_drop : Icons.water_drop_outlined,
-                        key: ValueKey(_running),
-                        size: 56,
-                        color: _deviceStatus == DeviceRuntimeStatus.offline
-                            ? const Color(0xFFB0B5C2)
-                            : (_running ? kHuish : kTextMuted),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    // 状态徽章
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.8),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 7,
-                            height: 7,
-                            decoration: BoxDecoration(
-                              color: _deviceStatus.dotColor,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            _deviceStatus == DeviceRuntimeStatus.unknown
-                                ? '加载中…'
-                                : _deviceStatus.label,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: _deviceStatus.dotColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _running
-                          ? '正在接水…'
-                          : _hasSession
-                          ? '本次接水完成'
-                          : '待取水',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: _running ? kHuish : kTextMuted,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    // 本次接水量大字
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: Text(
-                        '${_thisUse.toStringAsFixed(1)} $_unit',
-                        key: ValueKey(_thisUse.toStringAsFixed(1)),
-                        style: TextStyle(
-                          fontSize: 48,
-                          fontWeight: FontWeight.w800,
-                          color: kInk,
-                          height: 1.1,
-                          shadows: [
-                            Shadow(
-                              color: kPrimary.withValues(alpha: 0.15),
-                              offset: const Offset(0, 2),
-                              blurRadius: 8,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (_running) ...[
-                      const SizedBox(height: 4),
-                      const Text(
-                        '3 秒刷新',
-                        style: TextStyle(fontSize: 11, color: kTextMuted),
-                      ),
-                    ],
-                    const SizedBox(height: 18),
-                    // 统计信息行：本次消费（真实/估算/--）+ 累计出水 + 余额
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildStat('本次消费', _costLabel),
-                        Container(width: 1, height: 36, color: kGlassGridLine),
-                        _buildStat(
-                          '累计出水',
-                          '${_currentOut.toStringAsFixed(1)} $_unit',
-                        ),
-                        Container(width: 1, height: 36, color: kGlassGridLine),
-                        _buildStat('账户余额', '¥${_balance.toStringAsFixed(2)}'),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              ],
             ),
           ),
-          // 底部操作区：开始取水 + 移出列表（沉底，拇指易达）
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: FilledButton.icon(
-              onPressed: _running ? _stop : _start,
-              style: FilledButton.styleFrom(
-                backgroundColor: _running
-                    ? const Color(0xFFB85450)
-                    : kHuishDeep,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                elevation: _running ? 0 : 6,
-                shadowColor: kHuishDeep.withValues(alpha: 0.4),
-              ),
-              icon: Icon(
-                _running ? Icons.stop_rounded : Icons.play_arrow_rounded,
-                size: 26,
-              ),
-              label: Text(
-                _running ? '结束取水' : '开始取水',
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // 添加/移出"我的设备"列表（深水蓝）
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: OutlinedButton.icon(
-              onPressed: _alreadyFav ? _unfavoriteDevice : _favoriteDevice,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: _alreadyFav
-                    ? const Color(0xFFB85450)
-                    : kHuishDeep,
-                side: BorderSide(
-                  color: _alreadyFav
-                      ? const Color(0xFFB85450).withValues(alpha: 0.4)
-                      : kHuish.withValues(alpha: 0.5),
-                ),
-                backgroundColor: Colors.white.withValues(alpha: 0.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              icon: Icon(
-                _alreadyFav
-                    ? Icons.bookmark_remove_rounded
-                    : Icons.bookmark_add_rounded,
-                size: 18,
-              ),
-              label: Text(
-                _alreadyFav ? '从我的列表移除' : '添加到我的列表',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+          const SizedBox(height: 8),
+          Text(
+            _running
+                ? '正在接水…'
+                : _hasSession
+                ? '本次接水完成'
+                : '待取水',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: _running ? kHuish : kTextMuted,
             ),
           ),
           const SizedBox(height: 10),
-          // NFC 一键启动：预留通道（当前仅入口，待接入硬件）
-          SizedBox(
-            width: double.infinity,
-            height: 36,
-            child: TextButton.icon(
-              onPressed: _onNfcEntry,
-              style: TextButton.styleFrom(
-                foregroundColor: kTextMuted,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: const Icon(Icons.nfc_rounded, size: 18),
-              label: const Text(
-                'NFC 一键启动（预留）',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
+          // 本次接水量大字
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: Text(
+              '${_thisUse.toStringAsFixed(1)} $_unit',
+              key: ValueKey(_thisUse.toStringAsFixed(1)),
+              style: TextStyle(
+                fontSize: 48,
+                fontWeight: FontWeight.w800,
+                color: kInk,
+                height: 1.1,
+                shadows: [
+                  Shadow(
+                    color: kPrimary.withValues(alpha: 0.15),
+                    offset: const Offset(0, 2),
+                    blurRadius: 8,
+                  ),
+                ],
               ),
             ),
           ),
+          if (_running) ...[
+            const SizedBox(height: 4),
+            const Text(
+              '3 秒刷新',
+              style: TextStyle(fontSize: 11, color: kTextMuted),
+            ),
+          ],
+          const SizedBox(height: 18),
+          // 统计信息行：本次消费（真实/估算/--）+ 累计出水 + 余额
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildStat('本次消费', _costLabel),
+              Container(width: 1, height: 36, color: kGlassGridLine),
+              _buildStat(
+                '累计出水',
+                '${_currentOut.toStringAsFixed(1)} $_unit',
+              ),
+              Container(width: 1, height: 36, color: kGlassGridLine),
+              _buildStat('账户余额', '¥${_balance.toStringAsFixed(2)}'),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  // 开始/停止取水按钮（沉底，拇指易达）
+  Widget _buildStartButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: FilledButton.icon(
+        onPressed: _running ? _stop : _start,
+        style: FilledButton.styleFrom(
+          backgroundColor: _running
+              ? const Color(0xFFB85450)
+              : kHuishDeep,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          elevation: _running ? 0 : 6,
+          shadowColor: kHuishDeep.withValues(alpha: 0.4),
+        ),
+        icon: Icon(
+          _running ? Icons.stop_rounded : Icons.play_arrow_rounded,
+          size: 26,
+        ),
+        label: Text(
+          _running ? '结束取水' : '开始取水',
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 添加/移出"我的设备"列表（深水蓝）
+  Widget _buildFavButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 44,
+      child: OutlinedButton.icon(
+        onPressed: _alreadyFav ? _unfavoriteDevice : _favoriteDevice,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _alreadyFav
+              ? const Color(0xFFB85450)
+              : kHuishDeep,
+          side: BorderSide(
+            color: _alreadyFav
+                ? const Color(0xFFB85450).withValues(alpha: 0.4)
+                : kHuish.withValues(alpha: 0.5),
+          ),
+          backgroundColor: Colors.white.withValues(alpha: 0.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        icon: Icon(
+          _alreadyFav
+              ? Icons.bookmark_remove_rounded
+              : Icons.bookmark_add_rounded,
+          size: 18,
+        ),
+        label: Text(
+          _alreadyFav ? '从我的列表移除' : '添加到我的列表',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // NFC 一键启动：预留通道（当前仅入口，待接入硬件）
+  Widget _buildNfcButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 36,
+      child: TextButton.icon(
+        onPressed: _onNfcEntry,
+        style: TextButton.styleFrom(
+          foregroundColor: kTextMuted,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        icon: const Icon(Icons.nfc_rounded, size: 18),
+        label: const Text(
+          'NFC 一键启动（预留）',
+          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
+        ),
       ),
     );
   }

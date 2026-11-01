@@ -145,199 +145,243 @@ class _HuishLoginPageState extends ConsumerState<HuishLoginPage> {
     return Scaffold(
       body: GlassBackground(
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 32, 20, 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 独立 App 中登录页为根页面，无上一级，故移除返回箭头。
-                const SizedBox(height: 16),
-                Container(
-                  width: 64,
-                  height: 64,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [kHuish, kHuishDeep],
+          child: OrientationBuilder(
+            builder: (context, orientation) {
+              final isLand = orientation == Orientation.landscape;
+              if (isLand) {
+                // 横屏：品牌区居左、表单居右，左右分栏
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 40,
+                    vertical: 28,
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 840),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(child: _buildBrand(center: false)),
+                          const SizedBox(width: 40),
+                          Expanded(child: _buildForm()),
+                        ],
+                      ),
                     ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: kHuish.withValues(alpha: 0.35),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
                   ),
-                  child: const Icon(
-                    Icons.water_drop_rounded,
-                    color: Colors.white,
-                    size: 34,
+                );
+              }
+              // 竖屏：品牌区 + 表单纵向排列
+              return SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 32, 20, 40),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 16),
+                    _buildBrand(),
+                    const SizedBox(height: 26),
+                    _buildForm(),
+                    const SizedBox(height: 14),
+                    const Text(
+                      '数据来自第三方接口，本应用与官方无隶属关系',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 11.5, color: kTextMuted),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 品牌区：图标 + 名称 + 副标题
+  Widget _buildBrand({bool center = true}) {
+    return Column(
+      crossAxisAlignment: center
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 64,
+          height: 64,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [kHuish, kHuishDeep],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: kHuish.withValues(alpha: 0.35),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.water_drop_rounded,
+            color: Colors.white,
+            size: 34,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '喝在西皮',
+          textAlign: center ? TextAlign.center : TextAlign.start,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: kInk,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '请使用手机号验证码登录',
+          textAlign: center ? TextAlign.center : TextAlign.start,
+          style: const TextStyle(fontSize: 12, color: kTextMuted),
+        ),
+      ],
+    );
+  }
+
+  // 登录表单：手机号 + 图形验证码 + 短信验证码 + 登录按钮
+  Widget _buildForm() {
+    return GlassCard(
+      radius: 24,
+      padding: const EdgeInsets.fromLTRB(16, 22, 16, 16),
+      child: Column(
+        children: [
+          _field(_phone, '手机号', keyboard: TextInputType.phone),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: _field(_captcha, '图形验证码')),
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: _loadCaptcha,
+                child: Container(
+                  height: 46,
+                  width: 110,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.65),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  '喝在西皮',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: kInk,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  '请使用手机号验证码登录',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: kTextMuted),
-                ),
-                const SizedBox(height: 26),
-                GlassCard(
-                  radius: 24,
-                  padding: const EdgeInsets.fromLTRB(16, 22, 16, 16),
-                  child: Column(
-                    children: [
-                      _field(_phone, '手机号', keyboard: TextInputType.phone),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(child: _field(_captcha, '图形验证码')),
-                          const SizedBox(width: 10),
-                          GestureDetector(
-                            onTap: _loadCaptcha,
-                            child: Container(
-                              height: 46,
-                              width: 110,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.5),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.65),
-                                ),
+                  child: _captchaBytes != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Image.memory(
+                            _captchaBytes!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, _, _) => const Center(
+                              child: Icon(
+                                Icons.refresh,
+                                color: kPrimary,
                               ),
-                              child: _captchaBytes != null
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(14),
-                                      child: Image.memory(
-                                        _captchaBytes!,
-                                        fit: BoxFit.contain,
-                                        errorBuilder: (_, _, _) => const Center(
-                                          child: Icon(
-                                            Icons.refresh,
-                                            color: kPrimary,
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                  : const Center(
-                                      child: SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: kPrimary,
-                                        ),
-                                      ),
-                                    ),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(child: _field(_sms, '短信验证码')),
-                          const SizedBox(width: 10),
-                          SizedBox(
-                            height: 46,
-                            child: _countdown > 0
-                                ? Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                    ),
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.4,
-                                      ),
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.5,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      '${_countdown}s',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: kTextMuted,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  )
-                                : ElevatedButton(
-                                    onPressed: _sending ? null : _sendSms,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: kPrimary,
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      elevation: 0,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      _sending ? '发送中…' : '获取验证码',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: FilledButton(
-                          onPressed: _submitting ? null : _login,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: kHuishDeep,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            elevation: 6,
-                            shadowColor: kHuishDeep.withValues(alpha: 0.4),
-                          ),
-                          child: Text(
-                            _submitting ? '登录中…' : '登 录',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                        )
+                      : const Center(
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: kPrimary,
                             ),
                           ),
                         ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: _field(_sms, '短信验证码')),
+              const SizedBox(width: 10),
+              SizedBox(
+                height: 46,
+                child: _countdown > 0
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                        ),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(
+                            alpha: 0.4,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Colors.white.withValues(
+                              alpha: 0.5,
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          '${_countdown}s',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: kTextMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )
+                    : ElevatedButton(
+                        onPressed: _sending ? null : _sendSms,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kPrimary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                          ),
+                        ),
+                        child: Text(
+                          _sending ? '发送中…' : '获取验证码',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ],
-                  ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: FilledButton(
+              onPressed: _submitting ? null : _login,
+              style: FilledButton.styleFrom(
+                backgroundColor: kHuishDeep,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
                 ),
-                const SizedBox(height: 14),
-                const Text(
-                  '数据来自第三方接口，本应用与官方无隶属关系',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11.5, color: kTextMuted),
+                elevation: 6,
+                shadowColor: kHuishDeep.withValues(alpha: 0.4),
+              ),
+              child: Text(
+                _submitting ? '登录中…' : '登 录',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
                 ),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
