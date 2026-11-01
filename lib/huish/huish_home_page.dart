@@ -1156,7 +1156,7 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
     final isLand = MediaQuery.orientationOf(context) == Orientation.landscape;
 
     return Container(
-      width: isLand ? 200 : double.infinity,
+      width: isLand ? 250 : double.infinity,
       margin: isLand
           ? const EdgeInsets.only(right: 12, bottom: 12)
           : EdgeInsets.fromLTRB(20, 4, 20, bottomPad),
@@ -1231,7 +1231,7 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
                   Center(
                     child: Padding(
                       padding: EdgeInsets.symmetric(
-                        horizontal: hasDevice ? 86 : 20,
+                        horizontal: hasDevice ? (isLand ? 52 : 86) : 20,
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -1282,7 +1282,7 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
                     Positioned(
                       top: 0,
                       bottom: 0,
-                      right: 14,
+                      right: isLand ? 8 : 14,
                       child: Center(child: _quickStatusBadge(isRunning, isOffline)),
                     ),
                 ],
