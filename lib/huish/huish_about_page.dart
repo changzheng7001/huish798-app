@@ -74,12 +74,14 @@ class HuishAboutPage extends StatelessWidget {
                     const SizedBox(height: 10),
                     const _BodyText(
                       '「喝在西皮」是一款通过豆包任务（Vibe Coding，AI 协作式开发）'
-                      '开发的校园饮水服务客户端。它将开源项目「掌上华电」的取水部分'
-                      '独立出来，重新设计了应用图标与色调，并尝试进一步液态玻璃化'
-                      '（效果一般，未完全成功）；同时在消费记录中加入了跳转至相应设备的功能。'
-                      '应用对接云哆啦科技有限公司的 ilife / CLOUDORA 饮水设备接口。'
-                      '这也是作者第一次以 Vibe Coding 方式开发 Flutter 项目（此前仅用'
-                      '豆包做过网页套壳的教务查询 App），整体更偏学习与尝试性质。',
+                      '开发的校园饮水服务客户端。它几乎就是照搬开源项目「掌上华电」'
+                      '的取水部分，将其独立出来；应室长的要求重新设计了应用图标，'
+                      '并将应用的色调与图标颜色对齐颗粒度；同时尝试进一步液态玻璃化'
+                      '（变化不大，效果差强人意）。此外在消费记录中加入了跳转至'
+                      '相应设备的功能。应用对接云哆啦科技有限公司的 ilife / CLOUDORA'
+                      '饮水设备接口。这也是作者第一次以 Vibe Coding 方式开发 Flutter'
+                      '项目（此前仅用豆包做过网页套壳的教务查询 App），整体更偏'
+                      '学习与尝试性质。',
                     ),
                     const SizedBox(height: 12),
                     _kv('版本', kHuishVersion),
@@ -95,20 +97,22 @@ class HuishAboutPage extends StatelessWidget {
                     _sectionTitle('参考与开源'),
                     const SizedBox(height: 10),
                     const _BodyText(
-                      '界面与交互参考自开源项目「掌上华电」（Ncepu-Assistant）：',
+                      '本项目几乎就是照搬开源项目「掌上华电」（Ncepu-Assistant）：'
+                      '将其中取水部分独立出来，再做了一些细微修改：',
                     ),
                     const SizedBox(height: 6),
                     _openLink(context, '掌上华电', _kRefUrl),
                     const SizedBox(height: 10),
                     const _BodyText(
-                      '本项目亦参考了源头项目「huish」（因版本号 bug 无法直接使用）：',
+                      '取水逻辑亦参考了源头项目「huish」（因版本号 bug 无法直接使用）：',
                     ),
                     const SizedBox(height: 6),
                     _openLink(context, '源头项目', _kHuishUrl),
                     const SizedBox(height: 12),
                     const _BodyText(
                       '本项目源码已开源，仅供学习交流。如果你也想打造类似的饮水服务客户端，'
-                      '可以参考这份源码，并结合 AI 辅助编程工具，按自己的需求进行调整：',
+                      '可以参考这份源码，并结合豆包任务（Vibe Coding）按自己的需求'
+                      '进行调整：',
                     ),
                     const SizedBox(height: 6),
                     _openLink(context, '本项目源码', _kRepoUrl),
@@ -198,7 +202,28 @@ class HuishAboutPage extends StatelessWidget {
                       '数据存储于本机，不会上传至任何第三方服务器。',
                     ),
                     const _BodyText(
-                      '5. 如涉及相关权利问题，请通过官方渠道反馈，我们会配合处理。',
+                      '5. 如涉及相关权利问题，请通过开源仓库 Issues 反馈，我们会配合处理。',
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.check_circle,
+                          size: 16,
+                          color: kPrimary,
+                        ),
+                        const SizedBox(width: 6),
+                        const Expanded(
+                          child: Text(
+                            '我已阅读并同意上述免责声明',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: kInk,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

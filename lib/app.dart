@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'theme.dart';
 import 'widgets/glass_background.dart';
 import 'huish/huish_auth_state.dart';
+import 'huish/huish_disclaimer_page.dart';
 import 'huish/huish_home_page.dart';
 import 'huish/huish_login_page.dart';
 
@@ -48,12 +49,17 @@ class _Gate extends ConsumerStatefulWidget {
 class _GateState extends ConsumerState<_Gate> {
   bool _ready = false;
 
+  /// 是否已同意免责声明（首次启动必须同意才可使用 App）。
+  bool _disclaimerAgreed = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // 恢复本地保存的 token；完成后 setState 进入正式路由判定。
       await ref.read(huishAuthStateProvider.notifier).ensureRestored();
+      // 读取免责声明同意状态（首次使用需先同意）。
+      _disclaimerAgreed = await DisclaimerStore.agreed();
       if (mounted) setState(() => _ready = true);
     });
   }
@@ -69,6 +75,13 @@ class _GateState extends ConsumerState<_Gate> {
         body: GlassBackground(
           child: Center(child: CircularProgressIndicator()),
         ),
+      );
+    }
+
+    // 首次使用：先同意免责声明，方可进入 App。
+    if (!_disclaimerAgreed) {
+      return HuishDisclaimerPage(
+        onAgreed: () => setState(() => _disclaimerAgreed = true),
       );
     }
 
