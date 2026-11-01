@@ -2,11 +2,13 @@
 // 参考原掌上华电的"关于"结构：版本信息 + 功能说明 + 免责声明。
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../theme.dart';
 import '../../widgets/glass_background.dart';
 import '../../widgets/glass_snackbar.dart';
+import 'huish_disclaimer_page.dart';
 
 /// 本项目开源地址（与 GitHub 仓库保持一致）。
 const String _kRepoUrl = 'https://github.com/changzheng7001/huish798-app';
@@ -20,11 +22,11 @@ const String _kHuishUrl = 'https://github.com/KazemiyaMione/huish';
 /// 源头项目的社区修复版「798v6.0.0」。
 const String _kFixUrl = 'https://github.com/QYNU11/798v6.0.0';
 
-class HuishAboutPage extends StatelessWidget {
+class HuishAboutPage extends ConsumerWidget {
   const HuishAboutPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       body: Stack(
         children: [
@@ -225,12 +227,91 @@ class HuishAboutPage extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    const _BodyText(
+                      '请做出选择：同意并继续使用；或不同意（应用将不可用，'
+                      '但不会退出 App，可随时返回本页重新同意）。',
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _disclaimerButton(
+                            context,
+                            ref,
+                            label: '同意并继续使用',
+                            agreed: true,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _disclaimerButton(
+                            context,
+                            ref,
+                            label: '不同意（应用不可用）',
+                            agreed: false,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // 免责声明选择按钮：同意 → 应用可用；不同意 → 应用不可用（不退出）。
+  Widget _disclaimerButton(
+    BuildContext context,
+    WidgetRef ref, {
+    required String label,
+    required bool agreed,
+  }) {
+    return GestureDetector(
+      onTap: () async {
+        if (agreed) {
+          await DisclaimerStore.agree();
+          ref.read(disclaimerStateProvider.notifier).state =
+              DisclaimerState.agreed;
+          if (context.mounted) {
+            showGlassSnackBar(context, '已同意免责声明，应用可正常使用');
+          }
+        } else {
+          await DisclaimerStore.disagree();
+          ref.read(disclaimerStateProvider.notifier).state =
+              DisclaimerState.disagreed;
+          if (context.mounted) {
+            showGlassSnackBar(context, '已记录为不同意，应用将不可用（不退出）');
+          }
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: agreed
+              ? kPrimary
+              : const Color(0xFFB85450).withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: agreed
+                ? kPrimary
+                : const Color(0xFFB85450).withValues(alpha: 0.4),
+          ),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: agreed ? Colors.white : const Color(0xFFB85450),
+          ),
+        ),
       ),
     );
   }

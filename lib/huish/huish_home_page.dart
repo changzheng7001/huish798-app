@@ -520,6 +520,16 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
     }
   }
 
+  // 恢复设备默认名称：清掉自定义名，回退到服务端原始名称（无需删设备重加）。
+  Future<void> _resetDeviceName(dynamic d) async {
+    final id = _deviceId(d);
+    await DevicePrefs.updateDeviceCustom(id, customName: '');
+    _customs = await DevicePrefs.loadDeviceCustoms();
+    if (!mounted) return;
+    setState(() {});
+    showGlassSnackBar(context, '已恢复默认名称');
+  }
+
   // ── 分组管理 ─────────────────────────────────────────────
 
   Future<String?> _textInputDialog(String title, String initial) {
@@ -679,6 +689,11 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
                   Navigator.of(context).pop();
                   _renameDevice(d);
                 }),
+                if (_customs[id]?.customName.isNotEmpty ?? false)
+                  _sheetAction(Icons.restore_rounded, '恢复默认名称', () {
+                    Navigator.of(context).pop();
+                    _resetDeviceName(d);
+                  }),
                 const Padding(
                   padding: EdgeInsets.fromLTRB(4, 8, 4, 6),
                   child: Text(
@@ -1748,11 +1763,12 @@ class _DeviceCard extends StatelessWidget {
                   Text(
                     customName,
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 14,
+                      height: 1.25,
                       fontWeight: FontWeight.w700,
                       color: disabled ? kTextMuted : kInk,
                     ),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 3),
@@ -1784,7 +1800,7 @@ class _DeviceCard extends StatelessWidget {
             GestureDetector(
               onTap: onEdit,
               child: Container(
-                padding: const EdgeInsets.all(7),
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(10),
@@ -1794,14 +1810,14 @@ class _DeviceCard extends StatelessWidget {
                 ),
                 child: const Icon(
                   Icons.edit_note_rounded,
-                  size: 18,
+                  size: 17,
                   color: kTextMuted,
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               decoration: BoxDecoration(
                 color: disabled
                     ? const Color(0xFFB0B5C2)

@@ -49,17 +49,16 @@ class _Gate extends ConsumerStatefulWidget {
 class _GateState extends ConsumerState<_Gate> {
   bool _ready = false;
 
-  /// 是否已同意免责声明（首次启动必须同意才可使用 App）。
-  bool _disclaimerAgreed = false;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // 恢复本地保存的 token；完成后 setState 进入正式路由判定。
       await ref.read(huishAuthStateProvider.notifier).ensureRestored();
-      // 读取免责声明同意状态（首次使用需先同意）。
-      _disclaimerAgreed = await DisclaimerStore.agreed();
+      // 读取免责声明同意状态（首次使用需先同意；关于页可反悔为不同意）。
+      final ok = await DisclaimerStore.agreed();
+      ref.read(disclaimerStateProvider.notifier).state =
+          ok ? DisclaimerState.agreed : DisclaimerState.pending;
       if (mounted) setState(() => _ready = true);
     });
   }
@@ -68,6 +67,8 @@ class _GateState extends ConsumerState<_Gate> {
   Widget build(BuildContext context) {
     // watch 监听登录态：登录/退出后自动在登录页与主页之间切换。
     final auth = ref.watch(huishAuthStateProvider);
+    // 免责声明三态：agreed 可用；pending 首次同意页；disagreed 不可用占位页。
+    final disclaimer = ref.watch(disclaimerStateProvider);
 
     if (!_ready) {
       // 恢复中：显示玻璃拟态背景的加载转圈。
@@ -78,10 +79,27 @@ class _GateState extends ConsumerState<_Gate> {
       );
     }
 
-    // 首次使用：先同意免责声明，方可进入 App。
-    if (!_disclaimerAgreed) {
+    // 明确不同意：不退出 App，但应用不可用（仅提供重新同意入口）。
+    if (disclaimer == DisclaimerState.disagreed) {
+      return HuishDisclaimerBlockedPage(
+        onReAgree: () {
+          DisclaimerStore.agree();
+          ref
+              .read(disclaimerStateProvider.notifier)
+              .state = DisclaimerState.agreed;
+        },
+      );
+    }
+
+    // 首次使用 / 未表态：先同意免责声明，方可进入 App。
+    if (disclaimer != DisclaimerState.agreed) {
       return HuishDisclaimerPage(
-        onAgreed: () => setState(() => _disclaimerAgreed = true),
+        onAgreed: () {
+          DisclaimerStore.agree();
+          ref
+              .read(disclaimerStateProvider.notifier)
+              .state = DisclaimerState.agreed;
+        },
       );
     }
 

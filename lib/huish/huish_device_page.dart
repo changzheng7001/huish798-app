@@ -83,6 +83,27 @@ class _HuishDevicePageState extends ConsumerState<HuishDevicePage> {
         _startTs = localSession.startTs;
       }
       final api = ref.read(huishApiClientProvider);
+      // 校准"是否在我的设备列表"：以服务端收藏列表（favos）为准，避免从
+      // 使用记录（账单）等入口进入时，对不在列表中的设备误显示"从我的列表移除"。
+      try {
+        final master = await api.getMaster();
+        if (master.isSuccess) {
+          final data = master.dataMap ?? {};
+          final favs = data['favos'] ?? data['devices'] ?? data['device'] ?? [];
+          final favIds = (favs is List ? favs : [favs])
+              .map((e) => e is Map
+                  ? (e['id'] ?? e['did'] ?? e['deviceId'] ?? '').toString()
+                  : e.toString())
+              .toList();
+          if (favIds.contains(widget.deviceId)) {
+            _alreadyFav = true;
+          } else {
+            _alreadyFav = false;
+          }
+        }
+      } catch (_) {
+        // 查询失败时保持传入的默认值，不阻塞页面加载。
+      }
       final home = await api.getDeviceHome(widget.deviceId);
       final status = await api.getDeviceStatus(widget.deviceId);
       if (!mounted) return;

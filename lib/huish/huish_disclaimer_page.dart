@@ -1,29 +1,52 @@
-// huish/huish_disclaimer_page.dart —— 首次启动免责声明同意页。
+// huish/huish_disclaimer_page.dart —— 免责声明模块。
 // 符合《网络安全法》《个人信息保护法》等要求：初次使用必须阅读并同意
 // 免责声明后方可使用 App；同意结果持久化，之后不再弹出。
-// 关于页面中的免责声明卡片亦保留"我已阅读并同意上述免责声明"字样。
+// 关于页面中的免责声明卡片亦保留同意/不同意选择（不同意不退出 App，
+// 但应用不可用）。
+// 首次启动页「不同意并退出」直接退出 App；关于页「不同意」则停留在
+// App 内但进入不可用状态（由 _Gate 的门卫控制）。
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../theme.dart';
 import '../../widgets/glass_background.dart';
 
+/// 免责声明全局状态：agreed=已同意可用；pending=未表态（首次显示同意页）；
+/// disagreed=明确不同意（应用不可用，但不退出）。
+enum DisclaimerState { pending, agreed, disagreed }
+
+/// 免责声明状态 Provider：关于页「同意 / 不同意」与启动门卫共享同一状态。
+final disclaimerStateProvider = StateProvider<DisclaimerState>(
+  (ref) => DisclaimerState.pending,
+);
+
 /// 免责声明同意状态的本地持久化存储。
 class DisclaimerStore {
-  static const String _key = 'disclaimer_agreed_v1';
+  static const String _kAgreed = 'disclaimer_agreed_v1';
+  static const String _kDisagreed = 'disclaimer_disagreed_v1';
 
-  /// 是否已经同意过免责声明。
+  /// 是否处于"已同意且未反悔"状态。
   static Future<bool> agreed() async {
     final sp = await SharedPreferences.getInstance();
-    return sp.getBool(_key) ?? false;
+    return (sp.getBool(_kAgreed) ?? false) &&
+        !(sp.getBool(_kDisagreed) ?? false);
   }
 
   /// 记录用户已同意免责声明。
   static Future<void> agree() async {
     final sp = await SharedPreferences.getInstance();
-    await sp.setBool(_key, true);
+    await sp.setBool(_kAgreed, true);
+    await sp.remove(_kDisagreed);
+  }
+
+  /// 记录用户明确不同意（清除同意标记，App 将不可用但不退出）。
+  static Future<void> disagree() async {
+    final sp = await SharedPreferences.getInstance();
+    await sp.setBool(_kDisagreed, true);
+    await sp.remove(_kAgreed);
   }
 }
 
@@ -40,7 +63,7 @@ const List<String> kDisclaimerItems = [
 class HuishDisclaimerPage extends StatelessWidget {
   const HuishDisclaimerPage({super.key, required this.onAgreed});
 
-  /// 用户同意后回调（由 _Gate 负责切换到正式页面）。
+  /// 用户同意后回调（由 _Gate 负责写存储并切换到正式页面）。
   final VoidCallback onAgreed;
 
   @override
@@ -121,11 +144,7 @@ class HuishDisclaimerPage extends StatelessWidget {
                   child: Column(
                     children: [
                       GestureDetector(
-                        onTap: () {
-                          // 先记录同意，再切换到正式页面。
-                          DisclaimerStore.agree();
-                          onAgreed();
-                        },
+                        onTap: onAgreed,
                         child: Container(
                           width: double.infinity,
                           height: 52,
@@ -160,6 +179,84 @@ class HuishDisclaimerPage extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 未同意免责声明时的"不可用"占位页：不退出 App，但应用无法使用，
+/// 仅提供「重新阅读并同意」入口。
+class HuishDisclaimerBlockedPage extends StatelessWidget {
+  const HuishDisclaimerBlockedPage({super.key, required this.onReAgree});
+
+  final VoidCallback onReAgree;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: GlassBackground(child: const SizedBox.shrink()),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Icon(
+                    Icons.gavel_rounded,
+                    size: 56,
+                    color: Color(0xFFB85450),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    '未同意免责声明',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                      color: kInk,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    '您已在关于页面选择「不同意」，为符合相关要求，'
+                    '本应用暂不可用。\n如需继续使用，请重新阅读并同意免责声明。',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      height: 1.6,
+                      color: kTextMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  GestureDetector(
+                    onTap: onReAgree,
+                    child: Container(
+                      height: 52,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: kPrimary,
+                        borderRadius: BorderRadius.circular(26),
+                      ),
+                      child: const Text(
+                        '重新阅读并同意免责声明',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
