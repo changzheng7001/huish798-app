@@ -88,9 +88,40 @@ class HuishAuthNotifier extends Notifier<HuishAuthState> {
       );
       return true;
     } else {
-      state = state.copyWith(error: '登录失败 (code: ${resp.code})');
+      // 服务端 msg 才是真正原因（如"短信验证码错误"），code 只是通用失败码
+      state = state.copyWith(error: _describeLoginFailure(resp));
       return false;
     }
+  }
+
+  /// 用官方 App 已有的 token 登录（登录接口强制签名，仅凭证可复用）。
+  Future<bool> loginWithToken(String token) async {
+    state = state.copyWith(clearError: true);
+    final resp = await _api.loginWithToken(token);
+    if (resp.isSuccess) {
+      final phone = await _api.readSavedPhone();
+      state = state.copyWith(
+        loggedIn: true,
+        phone: phone,
+        uid: _api.uid,
+        eid: _api.eid,
+        token: _api.token,
+      );
+      return true;
+    }
+    state = state.copyWith(error: _describeLoginFailure(resp));
+    return false;
+  }
+
+  /// 把服务端的通用失败码翻译成用户能看懂的话。
+  String _describeLoginFailure(HuishApiResponse resp) {
+    final reason = resp.msg.trim();
+    if (reason.contains('请升级') || reason.contains('验签')) {
+      return '官方已限制第三方客户端登录（需官方签名），请改用「Token 登录」';
+    }
+    return reason.isNotEmpty
+        ? '$reason（code: ${resp.code}）'
+        : '登录失败（code: ${resp.code}）';
   }
 
   Future<void> logout() async {

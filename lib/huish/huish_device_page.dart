@@ -200,6 +200,44 @@ class _HuishDevicePageState extends ConsumerState<HuishDevicePage> {
     } catch (_) {}
   }
 
+  // 启停后短轮询确认服务端状态：确认一致才收起转圈；不一致时保留乐观值
+  Future<void> _confirmStatus({
+    required bool expectRunning,
+    int attempts = 10,
+  }) async {
+    final api = ref.read(huishApiClientProvider);
+    for (var i = 0; i < attempts; i++) {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return;
+      try {
+        final resp = await api.getDeviceStatus(widget.deviceId);
+        if (!mounted) return;
+        if (!resp.isSuccess) continue;
+        final gene =
+            (resp.dataMap?['device'] as Map<String, dynamic>?)?['gene']
+                as Map<String, dynamic>?;
+        var running = (gene?['status'] as int? ?? 99) == 1;
+        // 刚在本机停止：服务端状态滞后仍报 1，以本地“已停”为准
+        if (running &&
+            !expectRunning &&
+            await DevicePrefs.wasRecentlyStopped(widget.deviceId)) {
+          running = false;
+        }
+        if (running == expectRunning) {
+          setState(() {
+            _running = running;
+            _deviceStatus = running
+                ? DeviceRuntimeStatus.running
+                : DeviceRuntimeStatus.idle;
+          });
+          return;
+        }
+      } catch (_) {
+        // 单次失败不打断，继续轮询
+      }
+    }
+  }
+
   double get _thisUse =>
       _hasSession ? (_currentOut - _startOut).clamp(0, double.infinity) : 0;
 
@@ -212,7 +250,7 @@ class _HuishDevicePageState extends ConsumerState<HuishDevicePage> {
 
   Future<void> _start() async {
     if (_busy) return; // 连点保护：避免重复调用 /dev/start 建出两个会话
-    _busy = true;
+    setState(() => _busy = true); // 立刻把按钮换成转圈，避免“点了没反应”
     try {
       _startOut = _currentOut;
       _hasSession = true;
@@ -252,6 +290,8 @@ class _HuishDevicePageState extends ConsumerState<HuishDevicePage> {
         startTs: _startTs,
       );
       await DevicePrefs.clearStoppedByMe(widget.deviceId);
+      // 与首页卡片一致：先等状态确认，再收起转圈（期间按钮保持禁用）
+      await _confirmStatus(expectRunning: true);
       _startPolling();
     } catch (e) {
       if (mounted) {
@@ -265,13 +305,13 @@ class _HuishDevicePageState extends ConsumerState<HuishDevicePage> {
         _baselineReady = false;
       }
     } finally {
-      _busy = false;
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _stop() async {
-    if (_busy) return; // 连点保护：避免重复调用 /dev/end 并弹"停止失败"
-    _busy = true;
+    if (_busy) return; // 连点保护：避免重复调用 /dev/end 并弹“停止失败”
+    setState(() => _busy = true);
     _pollTimer?.cancel();
     try {
       final api = ref.read(huishApiClientProvider);
@@ -294,13 +334,15 @@ class _HuishDevicePageState extends ConsumerState<HuishDevicePage> {
       // 只刷余额，不调 _load（避免覆盖本次会话数据）
       await _refreshBalance();
       await _fetchLatestBill(); // 取本次真实消费
+      // 与首页卡片一致：等状态确认已停再收起转圈
+      await _confirmStatus(expectRunning: false);
     } catch (e) {
       if (!mounted) return;
       // 网络异常 → 不假装已停，恢复轮询
       showGlassSnackBar(context, '停止失败，请检查网络后重试');
       _startPolling();
     } finally {
-      _busy = false;
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -488,47 +530,9 @@ class _HuishDevicePageState extends ConsumerState<HuishDevicePage> {
   }
 
   Widget _buildContent() {
-    final isLand = MediaQuery.orientationOf(context) == Orientation.landscape;
     final bottomPad = MediaQuery.paddingOf(context).bottom + 16;
 
-    if (isLand) {
-      // 横屏：左栏（返回栏 + 接水量卡片），右栏（操作按钮竖排）
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 12),
-                  Expanded(child: Center(child: _buildWaterCard())),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              flex: 2,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildStartButton(),
-                  const SizedBox(height: 12),
-                  _buildFavButton(),
-                  const SizedBox(height: 10),
-                  _buildNfcButton(),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // 竖屏：返回栏 + 接水量卡片（撑满）+ 操作按钮（沉底）
+    // 返回栏 + 接水量卡片（撑满）+ 操作按钮（沉底）
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 12, 20, bottomPad),
       child: Column(
@@ -712,24 +716,39 @@ class _HuishDevicePageState extends ConsumerState<HuishDevicePage> {
       width: double.infinity,
       height: 56,
       child: FilledButton.icon(
-        onPressed: _running ? _stop : _start,
+        // 请求进行中禁用按钮，并显示转圈：既能防连点，也能让人看到"正在处理"
+        onPressed: _busy ? null : (_running ? _stop : _start),
         style: FilledButton.styleFrom(
           backgroundColor: _running
               ? const Color(0xFFB85450)
               : kHuishDeep,
           foregroundColor: Colors.white,
+          disabledBackgroundColor: (_running
+                  ? const Color(0xFFB85450)
+                  : kHuishDeep)
+              .withValues(alpha: 0.75),
+          disabledForegroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
-          elevation: _running ? 0 : 6,
+          elevation: _running || _busy ? 0 : 6,
           shadowColor: kHuishDeep.withValues(alpha: 0.4),
         ),
-        icon: Icon(
-          _running ? Icons.stop_rounded : Icons.play_arrow_rounded,
-          size: 26,
-        ),
+        icon: _busy
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: Colors.white,
+                ),
+              )
+            : Icon(
+                _running ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                size: 26,
+              ),
         label: Text(
-          _running ? '结束取水' : '开始取水',
+          _busy ? '处理中…' : (_running ? '结束取水' : '开始取水'),
           style: const TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,

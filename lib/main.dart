@@ -19,6 +19,12 @@ Future<void> main() async {
   // 否则 LoggingHttpClient 首次构造时看不到 enabled 状态。
   await AppDebugLog.instance.init();
 
+  // 锁定竖屏：不做横屏适配，避免旋转后布局错乱。
+  await SystemChrome.setPreferredOrientations(const [
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
   // 对齐原掌上华电：edge-to-edge + 透明状态栏/导航栏，让玻璃背景上下延伸。
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(

@@ -447,68 +447,50 @@ class _HuishBillPageState extends ConsumerState<HuishBillPage> {
                           ),
                         ),
                       ],
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: OrientationBuilder(
-                    builder: (context, orientation) {
-                      final isLand = orientation == Orientation.landscape;
-                      final list = RefreshIndicator(
-                        color: kPrimary,
-                        onRefresh: _loadBills,
-                        child: ListView(
-                          padding: EdgeInsets.fromLTRB(
-                            isLand ? 32 : 20,
-                            4,
-                            isLand ? 32 : 20,
-                            24,
-                          ),
-                          children: [
-                            if (!_walletLoading && _epName.isNotEmpty) ...[
-                              _balanceCard(),
-                              const SizedBox(height: 16),
-                            ],
-                            _filterBar(),
-                            const SizedBox(height: 10),
-                            if (_loading)
-                              const Padding(
-                                padding: EdgeInsets.only(top: 80),
-                                child: Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              )
-                            else if (_error != null)
-                              _ErrorView(error: _error!, onRetry: _loadBills)
-                            else if (_bills.isEmpty)
-                              _EmptyView(filtered: _statusFilter != null)
-                            else
-                              ..._bills.map(
-                                (b) => _BillCard(
-                                  bill: b as Map<String, dynamic>,
-                                  typeLabel: _typeLabel(b['type'] as int? ?? 0),
-                                  timeStr: _fmtTime(b['ctime'] as int?),
-                                  statusStyle:
-                                      _statusStyles[b['status'] as int? ?? 0],
-                                  onTap: () => _showDetail(b),
-                                  onGoDevice: () => _openBillDevice(b),
-                                ),
-                              ),
+                  Expanded(
+                    child: RefreshIndicator(
+                      color: kPrimary,
+                      onRefresh: _loadBills,
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                        children: [
+                          if (!_walletLoading && _epName.isNotEmpty) ...[
+                            _balanceCard(),
+                            const SizedBox(height: 16),
                           ],
-                        ),
-                      );
-                      if (!isLand) return list;
-                      // 横屏：列表限宽居中，避免跨屏过长
-                      return Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 720),
-                          child: list,
-                        ),
-                      );
-                    },
+                          _filterBar(),
+                          const SizedBox(height: 10),
+                          if (_loading)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 80),
+                              child: Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
+                          else if (_error != null)
+                            _ErrorView(error: _error!, onRetry: _loadBills)
+                          else if (_bills.isEmpty)
+                            _EmptyView(filtered: _statusFilter != null)
+                          else
+                            ..._bills.map(
+                              (b) => _BillCard(
+                                bill: b as Map<String, dynamic>,
+                                typeLabel: _typeLabel(b['type'] as int? ?? 0),
+                                timeStr: _fmtTime(b['ctime'] as int?),
+                                statusStyle:
+                                    _statusStyles[b['status'] as int? ?? 0],
+                                onTap: () => _showDetail(b),
+                                onGoDevice: () => _openBillDevice(b),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
             ),
           ],
         ),

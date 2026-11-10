@@ -7,6 +7,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../theme.dart';
@@ -87,7 +88,11 @@ class _HuishLoginPageState extends ConsumerState<HuishLoginPage> {
         showGlassSnackBar(context, '验证码已发送');
         _startCountdown();
       } else {
-        showGlassSnackBar(context, '发送失败 (code: ${resp.code})');
+        final reason = resp.msg.trim();
+        showGlassSnackBar(
+          context,
+          reason.isNotEmpty ? reason : '发送失败 (code: ${resp.code})',
+        );
         await _loadCaptcha();
       }
     } catch (e) {
@@ -140,56 +145,138 @@ class _HuishLoginPageState extends ConsumerState<HuishLoginPage> {
     }
   }
 
+  /// Token 登录：官方 App 已在用，只是登录接口被加签挡住了。
+  /// 服务端其余接口只认 Authorization，所以复用官方 App 的 token 即可。
+  Future<void> _showTokenDialog() async {
+    final ctrl = TextEditingController();
+    var submitting = false;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDlg) {
+            Future<void> submit() async {
+              final t = ctrl.text.trim();
+              if (t.isEmpty) {
+                showGlassSnackBar(context, '请先粘贴 Token');
+                return;
+              }
+              setDlg(() => submitting = true);
+              final ok = await ref
+                  .read(huishAuthStateProvider.notifier)
+                  .loginWithToken(t);
+              if (!ctx.mounted) return;
+              setDlg(() => submitting = false);
+              if (ok) {
+                Navigator.of(ctx).pop();
+              } else {
+                if (!mounted) return;
+                final err = ref.read(huishAuthStateProvider).error;
+                showGlassSnackBar(context, err ?? 'Token 登录失败');
+              }
+            }
+
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Text(
+                '用已有 Token 登录',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '服务端只限制「登录」接口，其余接口只认登录凭证。'
+                    '把官方「慧生活798」App 里的 token 粘进来即可。',
+                    style: TextStyle(fontSize: 12.5, color: kTextMuted),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: ctrl,
+                    minLines: 3,
+                    maxLines: 5,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: '粘贴 token（一长串字符）',
+                      hintStyle: const TextStyle(
+                        fontSize: 12.5,
+                        color: kTextMuted,
+                      ),
+                      filled: true,
+                      fillColor: const Color(0xFFF3F6FB),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: () async {
+                          final data = await Clipboard.getData(
+                            Clipboard.kTextPlain,
+                          );
+                          if (data?.text != null) {
+                            ctrl.text = data!.text!;
+                            setDlg(() {});
+                          }
+                        },
+                        icon: const Icon(Icons.content_paste_rounded, size: 16),
+                        label: const Text(
+                          '从剪贴板粘贴',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: submitting ? null : () => Navigator.of(ctx).pop(),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: submitting ? null : submit,
+                  child: Text(submitting ? '验证中…' : '登录'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    ctrl.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: GlassBackground(
         child: SafeArea(
-          child: OrientationBuilder(
-            builder: (context, orientation) {
-              final isLand = orientation == Orientation.landscape;
-              if (isLand) {
-                // 横屏：品牌区居左、表单居右，左右分栏
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 40,
-                    vertical: 28,
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 840),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(child: _buildBrand(center: false)),
-                          const SizedBox(width: 40),
-                          Expanded(child: _buildForm()),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }
-              // 竖屏：品牌区 + 表单纵向排列
-              return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 32, 20, 40),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 16),
-                    _buildBrand(),
-                    const SizedBox(height: 26),
-                    _buildForm(),
-                    const SizedBox(height: 14),
-                    const Text(
-                      '数据来自第三方接口，本应用与官方无隶属关系',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 11.5, color: kTextMuted),
-                    ),
-                  ],
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 32, 20, 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 16),
+                _buildBrand(),
+                const SizedBox(height: 26),
+                _buildForm(),
+                const SizedBox(height: 14),
+                const Text(
+                  '数据来自第三方接口，本应用与官方无隶属关系',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11.5, color: kTextMuted),
                 ),
-              );
-            },
+              ],
+            ),
           ),
         ),
       ),
@@ -379,6 +466,18 @@ class _HuishLoginPageState extends ConsumerState<HuishLoginPage> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          TextButton(
+            onPressed: _submitting ? null : _showTokenDialog,
+            style: TextButton.styleFrom(
+              foregroundColor: kHuishDeep,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            ),
+            child: const Text(
+              '官方登录被拦截？改用 Token 登录',
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
             ),
           ),
         ],

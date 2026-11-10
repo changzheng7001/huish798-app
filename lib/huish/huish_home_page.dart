@@ -77,6 +77,8 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
   bool _quickBusy = false;
   bool _quickOn = false; // 授权已开启（服务端 status 在实体键按下前仍为空闲）
   bool _quickPressed = false; // 一键取水按钮按压缩放（液态玻璃 interactive 交互）
+  String? _waterBusyId; // 卡片右侧取水按钮正在请求的设备（连点保护）
+  final Map<String, int> _waterStartedAt = {}; // 本机启动时刻（宽限期内以本地状态为准）
 
   @override
   void initState() {
@@ -452,6 +454,128 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
     );
     if (!mounted) return;
     await _load(silent: true); // 返回后刷新列表与设备状态（可能刚取水/停水）
+  }
+
+  // 设备卡片右侧「取水 / 结束」按钮：直接启停，不进入详情页
+  Future<void> _toggleDeviceWater(dynamic d) async {
+    final did = _deviceId(d);
+    if (_waterBusyId != null) return; // 连点保护
+    if (_statuses[did] == DeviceRuntimeStatus.offline) {
+      showGlassSnackBar(context, '设备离线，暂时无法取水');
+      return;
+    }
+    setState(() => _waterBusyId = did);
+    try {
+      final api = ref.read(huishApiClientProvider);
+      // 先查一次真实状态，避免用缓存判断错方向（启动 / 结束）
+      final st = await api.getDeviceStatus(did);
+      if (!mounted) return;
+      if (!st.isSuccess) {
+        showGlassSnackBar(context, '设备状态获取失败，请稍后重试');
+        return;
+      }
+      final device = st.dataMap?['device'] as Map<String, dynamic>?;
+      final gene = device?['gene'] as Map<String, dynamic>?;
+      final rawStatus = gene?['status'] as int? ?? 99;
+      // 本机刚停过 → 覆盖为空闲
+      var effStatus =
+          (rawStatus == 1 && await DevicePrefs.wasRecentlyStopped(did))
+          ? 99
+          : rawStatus;
+      // 本机刚启动的宽限期（20s）内，服务端可能仍报空闲（授权已开、实体键未按）：
+      // 以本地「使用中」为准，避免第二次点击又发一次 /dev/start
+      final startedAt = _waterStartedAt[did];
+      if (startedAt != null &&
+          DateTime.now().millisecondsSinceEpoch - startedAt < 20000 &&
+          _statuses[did] == DeviceRuntimeStatus.running) {
+        effStatus = 1;
+      }
+      final running = effStatus == 1;
+
+      if (running) {
+        final resp = await api.stopDevice(did);
+        if (!mounted) return;
+        if (!resp.isSuccess) {
+          showGlassSnackBar(
+            context,
+            '结束失败 (code: ${resp.code})，请到设备页重试',
+          );
+          return;
+        }
+        await DevicePrefs.clearActiveSession();
+        await DevicePrefs.markStoppedByMe(did);
+        _waterStartedAt.remove(did);
+        if (_quickDeviceId == did) {
+          await DevicePrefs.setQuickOn(false);
+          if (mounted) setState(() => _quickOn = false);
+        }
+        if (mounted) showGlassSnackBar(context, '已结束取水');
+      } else {
+        final resp = await api.startDevice(did);
+        if (!mounted) return;
+        if (!resp.isSuccess) {
+          showGlassSnackBar(
+            context,
+            '启动失败 (code: ${resp.code})，请到设备页查看原因',
+          );
+          return;
+        }
+        await DevicePrefs.clearStoppedByMe(did);
+        _waterStartedAt[did] = DateTime.now().millisecondsSinceEpoch;
+        await DevicePrefs.saveActiveSession(
+          deviceId: did,
+          startOut: (gene?['out'] as num?)?.toDouble() ?? 0,
+          startTs: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        );
+        if (mounted) showGlassSnackBar(context, '已开始取水');
+      }
+      // 等状态确认后再收起转圈：转圈期间按钮处于禁用态，避免连点又发一次启停请求
+      await _refreshDeviceStatusWithRetry(
+        did,
+        running ? DeviceRuntimeStatus.idle : DeviceRuntimeStatus.running,
+      );
+    } catch (e) {
+      if (mounted) showGlassSnackBar(context, '操作失败，请检查网络后重试');
+    } finally {
+      if (mounted) setState(() => _waterBusyId = null);
+    }
+  }
+
+  // 启停后刷新单台设备状态：先按预期值覆盖本地状态，再轮询服务端确认
+  Future<void> _refreshDeviceStatusWithRetry(
+    String did,
+    DeviceRuntimeStatus expect, {
+    int attempts = 10,
+  }) async {
+    if (!mounted) return;
+    setState(() => _statuses = {..._statuses, did: expect});
+    final api = ref.read(huishApiClientProvider);
+    for (var i = 0; i < attempts; i++) {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return;
+      try {
+        final resp = await api.getDeviceStatus(did);
+        if (!mounted) return;
+        if (!resp.isSuccess) continue;
+        final gene =
+            (resp.dataMap?['device'] as Map<String, dynamic>?)?['gene']
+                as Map<String, dynamic>?;
+        var st = DeviceRuntimeStatusX.fromGeneStatus(gene?['status'] as int?);
+        if (st == DeviceRuntimeStatus.running &&
+            await DevicePrefs.wasRecentlyStopped(did)) {
+          st = DeviceRuntimeStatus.idle;
+        }
+        if (!mounted) return;
+        if (st == expect) {
+          setState(() => _statuses = {..._statuses, did: st});
+          return;
+        }
+        // 尚未达到预期：保留本地乐观值，不回跳
+        // （回跳会让用户以为没生效，再点一次又发一次启停请求）
+      } catch (_) {
+        // 单次失败不打断，继续轮询
+      }
+    }
   }
 
   Future<void> _addDevice() async {
@@ -954,7 +1078,6 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
     // MediaQuery.removePadding 让背景铺满整屏（一定透到状态栏与底部 home indicator），
     // 内容用真实系统 inset（viewPadding）手动留白，避免被顶到状态栏下。
     final vp = MediaQuery.viewPaddingOf(context);
-    final isLand = MediaQuery.orientationOf(context) == Orientation.landscape;
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: MediaQuery.removePadding(
@@ -983,16 +1106,11 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
                 ],
               ),
             ),
-            // 一键取水：竖屏沉底（玻璃胶囊），横屏右侧悬浮（不占整行）
+            // 一键取水：沉底玻璃胶囊
             if (!_loading && _error == null)
               Align(
-                alignment: isLand
-                    ? Alignment.centerRight
-                    : Alignment.bottomCenter,
-                child: _buildQuickButton(
-                  context,
-                  bottomInset: isLand ? 0 : vp.bottom,
-                ),
+                alignment: Alignment.bottomCenter,
+                child: _buildQuickButton(context, bottomInset: vp.bottom),
               ),
           ],
         ),
@@ -1153,13 +1271,10 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
 
     // 沉底：预留底部安全区（home indicator）高度
     final bottomPad = bottomInset + 12;
-    final isLand = MediaQuery.orientationOf(context) == Orientation.landscape;
 
     return Container(
-      width: isLand ? 250 : double.infinity,
-      margin: isLand
-          ? const EdgeInsets.only(right: 12, bottom: 12)
-          : EdgeInsets.fromLTRB(20, 4, 20, bottomPad),
+      width: double.infinity,
+      margin: EdgeInsets.fromLTRB(20, 4, 20, bottomPad),
       child: GestureDetector(
         onTap: _quickBusy ? null : _quickToggle,
         onLongPress: _pickQuickDevice,
@@ -1231,7 +1346,7 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
                   Center(
                     child: Padding(
                       padding: EdgeInsets.symmetric(
-                        horizontal: hasDevice ? (isLand ? 52 : 86) : 20,
+                        horizontal: hasDevice ? 86 : 20,
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -1282,7 +1397,7 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
                     Positioned(
                       top: 0,
                       bottom: 0,
-                      right: isLand ? 8 : 14,
+                      right: 14,
                       child: Center(child: _quickStatusBadge(isRunning, isOffline)),
                     ),
                 ],
@@ -1295,17 +1410,14 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
   }
 
   Widget _buildContent() {
-    final isLand = MediaQuery.orientationOf(context) == Orientation.landscape;
     final grouped = _groupDevices();
     final groupNames = grouped.keys.toList();
     return RefreshIndicator(
       color: kPrimary,
       onRefresh: _load,
       child: ListView(
-        // 竖屏底部预留取水浮钮空间；横屏右侧预留（按钮右侧悬浮）
-        padding: isLand
-            ? const EdgeInsets.fromLTRB(20, 4, 150, 24)
-            : const EdgeInsets.fromLTRB(20, 4, 20, 130),
+        // 底部预留取水浮钮空间
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 130),
         children: [
           // 添加设备大按钮
           GestureDetector(
@@ -1403,11 +1515,10 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
                 ),
               ),
               const Spacer(),
-              if (!isLand)
-                const Text(
-                  '长按拖动排序',
-                  style: TextStyle(fontSize: 11, color: kTextMuted),
-                ),
+              const Text(
+                '长按拖动排序',
+                style: TextStyle(fontSize: 11, color: kTextMuted),
+              ),
               const SizedBox(width: 10),
               GestureDetector(
                 onTap: _manageGroups,
@@ -1503,33 +1614,7 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
                   ),
                 ),
                 if (!collapsed) ...[
-                  if (isLand)
-                    // 横屏：设备卡片两列网格，充分利用横向空间
-                    GridView(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      padding: EdgeInsets.zero,
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 560,
-                        mainAxisExtent: 86,
-                        crossAxisSpacing: 10,
-                        mainAxisSpacing: 8,
-                      ),
-                      children: [
-                        for (final d in list)
-                          _DeviceCard(
-                            customName: _deviceName(d),
-                            status:
-                                _statuses[_deviceId(d)] ??
-                                DeviceRuntimeStatus.unknown,
-                            onTap: () => _tapDevice(d),
-                            onEdit: () => _showDeviceActions(d),
-                          ),
-                      ],
-                    )
-                  else
-                    ReorderableListView(
+                  ReorderableListView(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       padding: EdgeInsets.zero,
@@ -1554,8 +1639,10 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
                               status:
                                   _statuses[_deviceId(d)] ??
                                   DeviceRuntimeStatus.unknown,
+                              busy: _waterBusyId == _deviceId(d),
                               onTap: () => _tapDevice(d),
                               onEdit: () => _showDeviceActions(d),
+                              onWater: () => _toggleDeviceWater(d),
                             ),
                           ),
                       ],
@@ -1706,32 +1793,6 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
     );
   }
 
-  Widget _sheetStat(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 10, color: kTextMuted)),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: kInk,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _logout() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -1758,13 +1819,17 @@ class _HuishHomePageState extends ConsumerState<HuishHomePage> {
 class _DeviceCard extends StatelessWidget {
   final String customName;
   final DeviceRuntimeStatus status;
+  final bool busy;
   final VoidCallback onTap;
   final VoidCallback onEdit;
+  final VoidCallback onWater;
   const _DeviceCard({
     required this.customName,
     required this.status,
     required this.onTap,
     required this.onEdit,
+    required this.onWater,
+    this.busy = false,
   });
 
   @override
@@ -1856,38 +1921,62 @@ class _DeviceCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-              decoration: BoxDecoration(
-                color: disabled
-                    ? const Color(0xFFB0B5C2)
-                    : (status == DeviceRuntimeStatus.running
-                          ? const Color(0xFFB85450)
-                          : kHuish),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: disabled
-                    ? null
-                    : [
-                        BoxShadow(
-                          color:
-                              (status == DeviceRuntimeStatus.running
-                                      ? const Color(0xFFB85450)
-                                      : kHuish)
-                                  .withValues(alpha: 0.35),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-              ),
-              child: Text(
-                disabled
-                    ? '离线'
-                    : (status == DeviceRuntimeStatus.running ? '结束' : '取水'),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
+            // 右侧「取水 / 结束」：独立点击区域，直接启停，不触发卡片跳转
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: busy ? null : onWater,
+              child: Container(
+                constraints: const BoxConstraints(
+                  minWidth: 52,
+                  minHeight: 33,
                 ),
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: disabled
+                      ? const Color(0xFFB0B5C2)
+                      : (status == DeviceRuntimeStatus.running
+                            ? const Color(0xFFB85450)
+                            : kHuish),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: disabled
+                      ? null
+                      : [
+                          BoxShadow(
+                            color:
+                                (status == DeviceRuntimeStatus.running
+                                        ? const Color(0xFFB85450)
+                                        : kHuish)
+                                    .withValues(alpha: 0.35),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                ),
+                child: busy
+                    ? const SizedBox(
+                        width: 15,
+                        height: 15,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        disabled
+                            ? '离线'
+                            : (status == DeviceRuntimeStatus.running
+                                  ? '结束'
+                                  : '取水'),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             ),
           ],

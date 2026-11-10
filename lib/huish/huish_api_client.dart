@@ -62,14 +62,14 @@ class HuishApiClient {
     return IOClient(httpClient);
   }
 
-  // 协议对齐 NcepuJw 项目（华电同学做的、当前真机可用）：
-  // 服务端 dev/start 最低版本校验 >3.1.4，NcepuJw 用 8.2.9 能过。
+  // 版本号对齐官方客户端最新版 3.1.10（小米商店 2026-10-21 上架）。
+  // 2026-11 起服务端在 /acc/login 上强制校验官方客户端签名（sign，盐值未公开），
+  // 版本号不再是门槛；改用 Token 登录后，其余接口只校验 Authorization。
   // UA + VersionCode 必须配套：Android_ilife798_<版本>。
-  // Accept-Language 是 NcepuJw 发的，不影响 dev/start，但对齐更保险。
   Map<String, String> get _baseHeaders => {
     'ApplicationType': '1,1',
-    'VersionCode': '8.2.9',
-    'user-agent': 'Android_ilife798_8.2.9',
+    'VersionCode': '3.1.10',
+    'user-agent': 'Android_ilife798_3.1.10',
     'Accept-Language': 'zh-Hans-CN;q=1',
   };
 
@@ -181,6 +181,57 @@ class HuishApiClient {
       }
     }
     return result;
+  }
+
+  /// 用官方 App 已有的 token 登录。
+  /// 2026-11 起 /acc/login 强制校验官方客户端签名，第三方无法通过；
+  /// 但其余接口（view-info / dev/start / bill…）只校验 Authorization，
+  /// 所以可以直接复用官方 App 里已经登录的 token。
+  Future<HuishApiResponse> loginWithToken(
+    String rawToken, {
+    String? phone,
+  }) async {
+    final t = rawToken.trim();
+    if (t.isEmpty) {
+      return HuishApiResponse(code: -1, msg: 'Token 为空');
+    }
+    _token = t;
+    _uid = null;
+    _eid = null;
+    final resp = await _get('/api/v1/acc/view-info');
+    final json = jsonDecode(resp.body) as Map<String, dynamic>;
+    final result = HuishApiResponse.fromJson(json);
+    if (result.isSuccess) {
+      final d = result.dataMap;
+      if (d != null) {
+        final id = d['id'] ?? d['uid'] ?? d['accountId'];
+        _uid = id?.toString();
+        _eid = _findString(d, 'eid');
+      }
+      await _persistToken(phone);
+    } else {
+      // 校验失败就不要留下脏 token，避免下次启动误判已登录
+      _token = null;
+      _uid = null;
+      _eid = null;
+      await clearToken();
+    }
+    return result;
+  }
+
+  /// 在嵌套 data 里找第一个非空的字符串字段（eid 有时在 wallet 之类子对象里）。
+  String? _findString(Map<String, dynamic> map, String key, [int depth = 0]) {
+    final v = map[key];
+    if (v is String && v.isNotEmpty) return v;
+    if (v is num) return v.toString();
+    if (depth >= 2) return null;
+    for (final val in map.values) {
+      if (val is Map<String, dynamic>) {
+        final r = _findString(val, key, depth + 1);
+        if (r != null) return r;
+      }
+    }
+    return null;
   }
 
   // ── 设备 ────────────────────────────────────────────────

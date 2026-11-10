@@ -49,3 +49,12 @@ app.*.map.json
 
 # 本地构建日志
 build_log.txt
+
+# 开发上下文交接文档（仅本机，不提交）
+DEV_CONTEXT.md
+
+# 签名密钥与密码（绝不提交）
+/android/key.properties
+/android/app/*.jks
+/android/app/*.keystore
+

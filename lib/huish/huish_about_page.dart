@@ -52,17 +52,9 @@ class HuishAboutPage extends ConsumerWidget {
             child: GlassBackground(child: const SizedBox.shrink()),
           ),
           SafeArea(
-            child: OrientationBuilder(
-              builder: (context, orientation) {
-                final isLand = orientation == Orientation.landscape;
-                final list = ListView(
-                  padding: EdgeInsets.fromLTRB(
-                    isLand ? 40 : 20,
-                    12,
-                    isLand ? 40 : 20,
-                    32,
-                  ),
-                  children: [
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+              children: [
                 Row(
                   children: [
                     GestureDetector(
@@ -117,6 +109,28 @@ class HuishAboutPage extends ConsumerWidget {
                     _kv('开发者', 'changzheng7001'),
                     _kv('服务提供方', '云哆啦科技'),
                     _kv('数据接口', 'i.ilife798.com'),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _sectionCard(
+                  children: [
+                    _sectionTitle('近期更新（v20–v29）'),
+                    const SizedBox(height: 10),
+                    const _BodyText(
+                      '1. 登录：官方在登录接口加强了客户端签名校验，第三方手机号＋短信'
+                      '验证码登录会被拦截（提示「请升级最新版应用」或「验签失败」）。'
+                      'v23 起新增「Token 登录」入口：在官方 App 登录后取出 token，'
+                      '粘贴到登录页即可。token 与官方登录态绑定，请勿外传。',
+                    ),
+                    const _BodyText(
+                      '2. 界面：已移除全部横屏适配，应用固定竖屏，旋转手机不会再出现'
+                      '错乱的横屏布局。',
+                    ),
+                    const _BodyText(
+                      '3. 交互：设备卡片右侧的「取水 / 结束」现在是独立按钮，点击可直接'
+                      '启停（点卡片其他位置仍进入设备详情页）；请求期间按钮转圈并禁用，'
+                      '避免连点重复创建会话；操作完成后列表状态会立即刷新。',
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -180,7 +194,8 @@ class HuishAboutPage extends ConsumerWidget {
                     const SizedBox(height: 10),
                     const _BodyText(
                       '1. 反复点击取水后，部分设备会提示「当前设备正在使用」而无法启动'
-                      '（客户端与服务端状态判定脱节，已定位、暂未修复）。',
+                      '（客户端与服务端状态判定脱节）。v25~v29 已做缓解：启动前先查状态、'
+                      '启停按钮防连点、操作后即时刷新列表；服务端占用判定本身仍未修复。',
                     ),
                     const _BodyText(
                       '2. 通过手机 NFC 一键启动对应饮水设备（已预留通道，暂未接入）。',
@@ -328,15 +343,6 @@ class HuishAboutPage extends ConsumerWidget {
                   ],
                 ),
               ],
-                );
-                if (!isLand) return list;
-                return Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 760),
-                    child: list,
-                  ),
-                );
-              },
             ),
           ),
         ],
