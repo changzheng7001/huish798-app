@@ -82,11 +82,20 @@ class _GateState extends ConsumerState<_Gate> {
     // 明确不同意：不退出 App，但应用不可用（仅提供重新同意入口）。
     if (disclaimer == DisclaimerState.disagreed) {
       return HuishDisclaimerBlockedPage(
-        onReAgree: () {
-          DisclaimerStore.agree();
-          ref
-              .read(disclaimerStateProvider.notifier)
-              .state = DisclaimerState.agreed;
+        onReAgree: () async {
+          // 先带用户回到完整免责声明正文，确实读过并在那里点「同意」才恢复可用；
+          // 不能在这一页点一下就直接放行。
+          final read = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (ctx) => HuishDisclaimerPage(
+                onAgreed: () => Navigator.of(ctx).pop(true),
+              ),
+            ),
+          );
+          if (read != true) return;
+          await DisclaimerStore.agree();
+          ref.read(disclaimerStateProvider.notifier).state =
+              DisclaimerState.agreed;
         },
       );
     }

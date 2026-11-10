@@ -227,7 +227,8 @@ class HuishDisclaimerBlockedPage extends StatelessWidget {
                   const SizedBox(height: 10),
                   const Text(
                     '您已在关于页面选择「不同意」，为符合相关要求，'
-                    '本应用暂不可用。\n如需继续使用，请重新阅读并同意免责声明。',
+                    '本应用暂不可用。\n点击下方按钮会打开完整的免责声明，'
+                    '阅读后点「同意」才会恢复使用。',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 13.5,
